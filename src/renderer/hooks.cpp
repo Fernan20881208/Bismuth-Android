@@ -37,10 +37,6 @@ class $modify(RendererPlayLayer, PlayLayer) {
             auto renderer = Renderer::create(this, m_objects);
             if (renderer)
                 batchLayer->addChild(renderer, -100000);
-
-            // for (auto obj : CCArrayExt<GameObject, false>(allGameObjects))
-            //     obj->release();
-            // allGameObjects->removeAllObjects();
         }
 
         PlayLayer::resetLevel();

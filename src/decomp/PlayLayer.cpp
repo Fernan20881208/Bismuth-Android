@@ -167,7 +167,7 @@ void decomp_PlayLayer::virtual_updateVisibility(float delta) {
                 object->setRScale(customAudioScale);
             }
         }
-
+    
         if (object->m_customGlowColor) {
             if (!object->m_glowColorIsLBG)
                 object->setGlowColor(m_lightBGColor);

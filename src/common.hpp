@@ -1,7 +1,7 @@
 #pragma once
 
 #include "Geode/cocos/cocoa/CCGeometry.h"
-#include "Geode/cocos/platform/win32/CCGL.h"
+#include "gl.hpp"
 #include "ccTypes.h"
 #include "glm/fwd.hpp"
 #include <cstring>
@@ -83,9 +83,7 @@ inline bool isIntelGPU() {
     return strcmp((const char*)glGetString(GL_VENDOR), "Intel") == 0;
 }
 
-#define GL_BUFFER 0x82E0
-#define GL_SHADER 0x82E1
-#define GL_PROGRAM 0x82E2
+bool isOpenGLAtLeastVersion(u32 major, u32 minor);
 
 void glObjectLabel(GLenum id, GLuint name, GLsizei length, const char* label);
 

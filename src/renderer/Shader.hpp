@@ -23,12 +23,14 @@ public:
     static UPtr<Shader> createCompute(const fs::path& path, std::map<std::string, std::string> macroVariables = {});
 
     inline void use() {
-        glUseProgram(program);
+        cocos2d::ccGLUseProgram(program);
     }
 
     inline u32 location(const char* name) {
         return glGetUniformLocation(program, name);
     }
+
+    u32 getBufferBinding(const char* name, bool ssbo);
 
     void setMatrix4(u32 location, const float* data);
     inline void setMatrix4(const char* name, const float* data) {
@@ -80,5 +82,12 @@ public:
     }
 
 private:
+    struct BufferBinding {
+        u32 binding;
+        u32 index;
+    };
+
     u32 program = 0;
+    std::map<std::string, BufferBinding> bufferBindings;
+    u32 bufferBindingCounter = 0;
 };

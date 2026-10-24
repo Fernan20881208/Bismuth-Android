@@ -18,12 +18,12 @@ public:
     }
 
     inline void start() {
-        if (profiler::isTakingSnapshot)
+        if (profiler::isTakingGPUTime)
             glBeginQuery(GL_TIME_ELAPSED, queryObject);
     }
 
     inline void stop() {
-        if (profiler::isTakingSnapshot) {
+        if (profiler::isTakingGPUTime) {
             glEndQuery(GL_TIME_ELAPSED);
             glGetQueryObjecti64v(queryObject, GL_QUERY_RESULT, &time);
         }

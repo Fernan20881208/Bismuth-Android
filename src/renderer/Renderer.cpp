@@ -48,6 +48,9 @@ bool Renderer::init(PlayLayer* layer, CCArray* levelObjects) {
         return false;
     currentRenderer = this;
 
+    if (!hasLoadedNewerOpenGLFunctions())
+        loadNewerOpenGLFunctions();
+
     glGenQueries(1, &timeElapsedQuery);
 
     this->layer = layer;
@@ -58,7 +61,8 @@ bool Renderer::init(PlayLayer* layer, CCArray* levelObjects) {
         return false;
 
     ingameEnableDisable = Mod::get()->getSettingValue<bool>("ingame_enable");
-    useIndexCulling     = Mod::get()->getSettingValue<bool>("index_culling");
+
+    workGroupCount = Mod::get()->getSettingValue<int>("work_group_count");
 
     log::info("OpenGL Version: {}", (const char*)glGetString(GL_VERSION));
 
@@ -152,18 +156,17 @@ bool Renderer::init(PlayLayer* layer, CCArray* levelObjects) {
     log::info("Compiled objectDrawing shader");
 
     cullingComputeShader = Shader::createCompute("objectCulling.comp", shaderMacroVariables);
-
     if (!cullingComputeShader)
         return false;
 
     log::info("Compiled objectCulling shader");
 
-    colorChannelBufferObject = Buffer::createDynamicDraw("Color channel buffer", sizeof(ColorChannelBuffer));
+    colorChannelBufferObject = Buffer::createDynamicDraw("ColorChannelBuffer", sizeof(ColorChannelBuffer));
     if (!colorChannelBufferObject)
         return false;
     colorChannelBuffer = (ColorChannelBuffer*)colorChannelBufferObject->mapWriteOnly();
 
-    gameStateBuffer = Buffer::createDynamicDraw("Game state buffer", sizeof(GameStateBuffer));
+    gameStateBuffer = Buffer::createDynamicDraw("GameStateBuffer", sizeof(GameStateBuffer));
     if (!gameStateBuffer)
         return false;
 
@@ -210,6 +213,14 @@ bool Renderer::init(PlayLayer* layer, CCArray* levelObjects) {
     layer->m_objectLayer->addChild(new FinishNode, 99999);
 
     reset();
+
+    if (ingameEnableDisable) {
+        Notification::create(
+            "Debug tools removes ALL optimizations!\nDisable it for better performance.",
+            NotificationIcon::Warning,
+            5.0f
+        )->show();
+    }
 
     log::info("Renderer initialized");
     return true;
@@ -383,7 +394,7 @@ void Renderer::generateStaticRenderingBuffer(std::vector<GameObject*>& objects) 
         index++;
     }
 
-    srbBuffer = Buffer::createStaticDraw("Static rendering buffer", objectInfos.data(), objectInfos.size() * sizeof(ObjectInfo));
+    srbBuffer = Buffer::createStaticDraw("ObjectInfoBuffer", objectInfos.data(), objectInfos.size() * sizeof(ObjectInfo));
 };
 
 static glm::vec2 linePoint = { 100, 200 };
@@ -419,7 +430,7 @@ void Renderer::draw() {
     fetchBlendingStates();
 
     u64 prevTime = getTime();
-    storeGLStates();
+    // storeGLStates();
     prepareShaderUniforms();
     if (!isPaused()) {
         prepareColorChannelBuffer();
@@ -482,7 +493,7 @@ void Renderer::draw() {
     }
     */
 
-    restoreGLStates();
+    // restoreGLStates();
 
     PROFILER_POP();
 }
@@ -556,14 +567,14 @@ void Renderer::fetchBlendingStates() {
 
 Shader* Renderer::prepareDraw() {
     PROFILER_PUSH("Renderer::prepareDraw");
-    storeGLStates();
+    // storeGLStates();
     shader->use();
     PROFILER_POP();
     return shader.get();
 }
 
 void Renderer::finishDraw() {
-    restoreGLStates();
+    // restoreGLStates();
 }
 
 void Renderer::update(float dt) {
@@ -602,6 +613,7 @@ Ref<Renderer> Renderer::create(PlayLayer* layer, CCArray* objects) {
         return ren;
     }
     
+    log::error("Failed to initialize renderer");
     delete ren;
     return nullptr;
 }
@@ -690,8 +702,9 @@ static i32 storedBlendDstAlpha, storedBlendDstRGB;
 static i32 storedTextures[9];
 
 void storeGLStates() {
-    PROFILER_PUSH("storeGLStates");
     glGetIntegerv(GL_VERTEX_ARRAY_BINDING, &storedVAO);
+    /*
+    PROFILER_PUSH("storeGLStates");
     // glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &storedVBO);
     // glGetIntegerv(GL_ELEMENT_ARRAY_BUFFER_BINDING, &storedIBO);
     glGetIntegerv(GL_CURRENT_PROGRAM, &storedProgram);
@@ -701,38 +714,33 @@ void storeGLStates() {
     // glGetIntegerv(GL_BLEND_DST_ALPHA, &storedBlendDstAlpha);
     // glGetIntegerv(GL_BLEND_DST_RGB,   &storedBlendDstRGB);
 
-    /*
     for (int i = 0; i < 9; i++) {
     }
     glActiveTexture(GL_TEXTURE0);
-    */
     glGetIntegerv(GL_TEXTURE_BINDING_2D, storedTextures);
     glActiveTexture(GL_TEXTURE0);
     PROFILER_POP();
+    */
 }
 
 void restoreGLStates() {
-    PROFILER_PUSH("restoreGLStates");
     glBindVertexArray(storedVAO);
+    /*
+    PROFILER_PUSH("restoreGLStates");
     // glBindBuffer(GL_ARRAY_BUFFER, storedVBO);
     // glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, storedIBO);
     glUseProgram(storedProgram);
 
-    /*
     glBlendFuncSeparate(
         storedBlendSrcRGB,
         storedBlendDstRGB,
         storedBlendSrcAlpha,
         storedBlendDstAlpha
     );
-    */
-
-    /*
-    for (int i = 0; i < 9; i++) {
-    }
+    
     glActiveTexture(GL_TEXTURE0);
     glActiveTexture(GL_TEXTURE0);
-    */
     glBindTexture(GL_TEXTURE_2D, *storedTextures);
     PROFILER_POP();
+    */
 }

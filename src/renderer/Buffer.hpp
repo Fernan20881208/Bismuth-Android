@@ -1,9 +1,7 @@
 #pragma once
 
-#include "Geode/cocos/platform/win32/CCGL.h"
 #include <common.hpp>
-
-#define GL_SHADER_STORAGE_BUFFER 0x90D2
+#include "Shader.hpp"
 
 class Buffer {
 public:
@@ -26,6 +24,10 @@ public:
 
     inline void bindAsStorageBuffer(u32 binding) {
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, binding, id);
+    }
+
+    inline void bindAsStorageBuffer(u32 binding, u32 offset, u32 size) {
+        glBindBufferRange(GL_SHADER_STORAGE_BUFFER, binding, id, offset, size);
     }
 
     void* map(i32 type);
@@ -80,6 +82,7 @@ public:
     }
 
 private:
+    const char* name;
     usize size = 0;
     u32 id = 0;
     bool shouldMap = true;

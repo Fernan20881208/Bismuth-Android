@@ -144,7 +144,7 @@ void GroupManager::initWithObjects(cocos2d::CCArray* objects) {
     alphaValuesPerGroupId.resize(maxGroupId + 1);
     alphaValuesPerAlphaIndex.resize(alphaIndiciesCount);
 
-    groupStateBuffer = Buffer::createDynamicDraw("Group state buffer", getGroupStateBufferSize());
+    groupStateBuffer = Buffer::createDynamicDraw("GroupStateBuffer", getGroupStateBufferSize());
     groupStates = (GroupCombinationState*)groupStateBuffer->mapReadWrite();
 
     fetchVanilaRotateGroups();

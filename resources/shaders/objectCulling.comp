@@ -44,8 +44,8 @@ vec4 applyHSV(HSV hsvValue, vec4 color);
 
 //// PROCESS SPRITE FUNCTION ////
 void processSprite(uint preCulledSpriteIndex) {
-    vec2 startPosition         = PreCulledSprites.startPosition[preCulledSpriteIndex];
-    uint groupCombinationIndex = PreCulledSprites.groupCombinationIndex[preCulledSpriteIndex];
+    vec2 startPosition         = PreCulledSprite_startPosition[preCulledSpriteIndex];
+    uint groupCombinationIndex = PreCulledSprite_groupCombinationIndex[preCulledSpriteIndex];
 
     //// APPLY GROUP COMBINATION STATE ////
     GroupCombinationState state = u_groupCombinationStates[groupCombinationIndex];
@@ -109,9 +109,9 @@ void processSprite(uint preCulledSpriteIndex) {
         return;
 
     //// SAVE DATA INTO RAW SPRITE BUFFER ////
-    RawSprites.position[spriteIndex] = objectPosition;
-    RawSprites.localTransform[spriteIndex] = objectLocalTransform;
-    RawSprites.color[spriteIndex] = color;
+    RawSprite_position[spriteIndex] = objectPosition;
+    RawSprite_localTransform[spriteIndex] = objectLocalTransform;
+    RawSprite_color[spriteIndex] = color;
 
     //// WRITE THE SPRITE INDICIES ////
     uint indexEnd = sprite.indexStart + sprite.indexCount;
@@ -143,7 +143,7 @@ bool isObjectOnScreen() {
 
     vec2 screenPos = vec2(dot(u_cameraRight, offset), dot(u_cameraUp, offset));
 
-    const float leeway = 60.0;
+    const float leeway = 30.0;
 
     return screenPos.x >= -leeway &&
            screenPos.x <= u_cameraSize.x + leeway &&
@@ -154,8 +154,8 @@ bool isObjectOnScreen() {
 float calculateAudioScale() {
     float scale;
     if ((objectFlags & OBJECT_FLAG_CUSTOM_AUDIO_SCALE) != 0) {
-        float minScale = 1.0;//u_objects[objectIndex].audioScaleMin;
-        float maxScale = 1.0;//u_objects[objectIndex].audioScaleMax;
+        float minScale = u_objects[objectIndex].audioScaleMin;
+        float maxScale = u_objects[objectIndex].audioScaleMax;
         scale = (u_audioScale - 0.1) * (maxScale - minScale) + minScale;
     } else
         scale = u_audioScale;
@@ -182,10 +182,10 @@ vec2 calculateInvisibleBlockOpacity() {
     float someScreenLeft = u_screenRight - centerRightX - 90.0;
 
     float fadePosX = objectPosition.x;
-    //if (fadePosX <= u_cameraUnzoomedX)
-    //    fadePosX += u_objects[objectIndex].fadeMargin;
-    //else
-    //    fadePosX -= u_objects[objectIndex].fadeMargin;
+    if (fadePosX <= u_cameraUnzoomedX)
+        fadePosX += u_objects[objectIndex].fadeMargin;
+    else
+        fadePosX -= u_objects[objectIndex].fadeMargin;
     
     float relMod = getRelativeMod(fadePosX, 0.02, 0.014285714, 0.0);
 

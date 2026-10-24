@@ -15,7 +15,7 @@ struct SortedObjectBatch {
     UPtr<Buffer> spriteRemapBuffer;
     UPtr<Buffer> workGroupBuffer;
     UPtr<Buffer> drawCommandBuffer;
-    UPtr<PreCulledSprites::Buffer> preCulledSpritesBuffer;
+    UPtr<PreCulledSprite::Buffer> preCulledSpritesBuffer;
 
     u32 workGroupCount;
 
@@ -69,7 +69,7 @@ private:
 
     usize currentSpriteIndex;
     
-    UPtr<PreCulledSprites::Buffer> preCulledSprites;
+    UPtr<PreCulledSprite::Buffer> preCulledSprites;
 
     std::unordered_map<LayerKey, std::vector<SpriteEntry*>> sortedSpriteLayers;
 };

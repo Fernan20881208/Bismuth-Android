@@ -102,13 +102,13 @@ public:
         return layer->m_isPaused;
     }
 
-    inline bool isUseIndexCulling() const { return useIndexCulling; }
-
     inline ObjectBatch& getObjectBatch() { return objectBatch; }
 
     inline Shader* getCullingComputeShader() const {
         return cullingComputeShader.get();
     }
+
+    inline usize getWorkGroupCount() const { return workGroupCount; }
 
     bool useOptimizations();
 
@@ -136,11 +136,11 @@ private:
     bool debugTextEnabled = false;
     bool ingameEnableDisable = false;
 
-    bool useIndexCulling = false;
-
     u64 rendererStartTime = 0;
 
     usize spritesOnScreen = 0;
+
+    usize workGroupCount = 0;
 
     std::unordered_map<GameObject*, usize> objectSRBIndicies;
 

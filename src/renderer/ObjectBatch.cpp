@@ -224,13 +224,13 @@ void ObjectBatch::finishWriting() {
     vertexCount = verticies.size();
     indexCount  = indicies.size();
 
-    vertexBuffer           = Buffer::createStaticDraw("Object vertex buffer", verticies.data(), vertexCount * sizeof(ObjectVertex));
-    indexBuffer            = Buffer::createStaticDraw("Object index buffer", indicies.data(), indexCount * sizeof(u32));
-    inputSpriteBuffer      = Buffer::createStaticDraw("Input sprite buffer", inputSprites.data(), inputSprites.size() * sizeof(InputSprite));
+    vertexBuffer      = Buffer::createStaticDraw("VertexBuffer", verticies.data(), vertexCount * sizeof(ObjectVertex));
+    // indexBuffer       = Buffer::createStaticDraw("ObjectIndexBuffer", indicies.data(), indexCount * sizeof(u32));
+    inputSpriteBuffer = Buffer::createStaticDraw("InputSpriteBuffer", inputSprites.data(), inputSprites.size() * sizeof(InputSprite));
     // preCulledSpritesBuffer = Buffer::createStaticDraw("Pre-culled sprites buffer", preCulledSprites.data(), preCulledSprites.size() * sizeof(PreCulledSprite));
 
-    rawSpriteBuffer   = RawSprites::Buffer::create(getSpriteCount(), GL_DYNAMIC_DRAW, false);
-    culledIndexBuffer = Buffer::createGPUExclusive("Culled index buffer", vertexCount / 3 * sizeof(u32));
+    rawSpriteBuffer   = RawSprite::Buffer::create(getSpriteCount(), GL_DYNAMIC_DRAW, false);
+    culledIndexBuffer = Buffer::createGPUExclusive("CulledTriIndexBuffer", vertexCount / 3 * sizeof(u32));
 
     spriteSorter.sortForCurrentBlendingStates();
     sortedBatch = spriteSorter.generateSortedBatch();
@@ -244,13 +244,6 @@ void ObjectBatch::finishWriting() {
     restoreGLStates();
 }
 
-typedef void (*PFNGLMULTIDRAWELEMENTSINDIRECTPROC)(GLenum mode, GLenum type, const void * indirect, GLsizei drawcount, GLsizei stride);
-static PFNGLMULTIDRAWELEMENTSINDIRECTPROC glMultiDrawElementsIndirect;
-typedef void (*PFNGLMULTIDRAWARRAYSINDIRECTPROC)(GLenum mode, const void * indirect, GLsizei drawcount, GLsizei stride);
-static PFNGLMULTIDRAWARRAYSINDIRECTPROC glMultiDrawArraysIndirect;
-typedef void (*PFNGLDISPATCHCOMPUTEPROC)(GLuint num_groups_x, GLuint num_groups_y, GLuint num_groups_z);
-static PFNGLDISPATCHCOMPUTEPROC glDispatchCompute = nullptr;
-
 void ObjectBatch::draw(const LayerKey& layer) {
     PROFILER_PUSH("ObjectBatch::draw");
 
@@ -260,18 +253,12 @@ void ObjectBatch::draw(const LayerKey& layer) {
     }
     const auto& range = sortedBatch->workGroupRangePerLayerKey[layer];
 
-    if (!glMultiDrawElementsIndirect)
-        glMultiDrawElementsIndirect = (PFNGLMULTIDRAWELEMENTSINDIRECTPROC)wglGetProcAddress("glMultiDrawElementsIndirect");
-    if (!glMultiDrawArraysIndirect)
-        glMultiDrawArraysIndirect = (PFNGLMULTIDRAWARRAYSINDIRECTPROC)wglGetProcAddress("glMultiDrawArraysIndirect");
-
     sortedBatch->bindBuffers();
     prepareCullingComputeShader();
     renderer.bindCullingComputeShaderBuffers();
     sortedBatch->drawCommandBuffer->bindAs(GL_DRAW_INDIRECT_BUFFER);
-    glBindVertexArray(vao);
+    // glBindVertexArray(vao);
     vertexBuffer->bindAsStorageBuffer(VERTEX_BUFFER_BINDING);
-    // culledIndexBuffer->bindAs(GL_ELEMENT_ARRAY_BUFFER);
     culledIndexBuffer->bindAsStorageBuffer(CULLED_TRI_INDEX_BUFFER);
 
     glMultiDrawArraysIndirect(
@@ -296,9 +283,6 @@ void ObjectBatch::predraw() {
     renderer.bindCullingComputeShaderBuffers();
     sortedBatch->bindBuffers();
 
-    if (!glDispatchCompute)
-        glDispatchCompute = (PFNGLDISPATCHCOMPUTEPROC)wglGetProcAddress("glDispatchCompute");
-
     glDispatchCompute(sortedBatch->workGroupCount, 1, 1);
 
     cullingComputeShaderTimer.stop();
@@ -306,11 +290,12 @@ void ObjectBatch::predraw() {
 }
 
 void ObjectBatch::prepareCullingComputeShader() {
-    indexBuffer->bindAsStorageBuffer(INPUT_INDEX_BUFFER_BINDING);
+    // log::info("{} {} {} {} {}", (void*)indexBuffer.get(), (void*)inputSpriteBuffer.get(), (void*)rawSpriteBuffer.get(), (void*)culledIndexBuffer.get(), (void*)shader);
+    // indexBuffer->bindAsStorageBuffer(shader);
     inputSpriteBuffer->bindAsStorageBuffer(INPUT_SPRITE_BUFFER_BINDING);
     rawSpriteBuffer->bind();
     // culledIndexBuffer->bindAsStorageBuffer(CULLED_INDEX_BUFFER_BINDING);
-    culledIndexBuffer->bindAsStorageBuffer(CULLED_TRI_INDEX_BUFFER);
+    culledIndexBuffer->bindAsStorageBuffer(CULLED_INDEX_BUFFER_BINDING);
     // preCulledSpritesBuffer->bindAsStorageBuffer(PRE_CULLED_SPRITE_BUFFER_BINDING);
 }
 

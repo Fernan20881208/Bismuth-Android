@@ -11,8 +11,6 @@ struct WorkGroup {
     uint culledIndexBufferOutputIndex;
 };
 
-#define MAX_WORK_GROUP_COUNT 10000
-
 STORAGE_BUFFER(WORK_GROUP_BUFFER_BINDING) WorkGroupBuffer {
     WorkGroup u_workGroups[CPP_ONLY(0)];
 };

@@ -47,7 +47,7 @@ UPtr<SortedObjectBatch> ObjectSpriteSorter::generateSortedBatch() {
     std::vector<u32> spriteRemap;
     spriteRemap.reserve(spriteEntries.size());
 
-    u32 approxWorkGroupCount = std::min<u32>(spriteEntries.size() / 2 + 1, MAX_WORK_GROUP_COUNT);
+    u32 approxWorkGroupCount = std::min<u32>(spriteEntries.size(), Renderer::get()->getWorkGroupCount());
     u32 approxSpritesPerWorkGroup = spriteEntries.size() / approxWorkGroupCount;
 
     std::vector<WorkGroup> workGroups;
@@ -56,7 +56,7 @@ UPtr<SortedObjectBatch> ObjectSpriteSorter::generateSortedBatch() {
     u32 outIndex = 0;
     std::map<LayerKey, WorkGroupRange> workGroupRangesPerLayerKey;
 
-    preCulledSprites = PreCulledSprites::Buffer::create(spriteEntries.size(), GL_STATIC_DRAW);
+    preCulledSprites = PreCulledSprite::Buffer::create(spriteEntries.size(), GL_STATIC_DRAW);
     currentSpriteIndex = 0;
 
     for (auto& [key, layer] : sortedSpriteLayers) {
@@ -77,7 +77,7 @@ UPtr<SortedObjectBatch> ObjectSpriteSorter::generateSortedBatch() {
     log::info("Work group count: {}", workGroups.size());
 
     auto spriteRemapBuffer = Buffer::createStaticDraw(
-        "Sprite remap buffer",
+        "SpriteRemapBuffer",
         spriteRemap.data(),
         spriteRemap.size() * sizeof(u32)
     );
@@ -86,7 +86,7 @@ UPtr<SortedObjectBatch> ObjectSpriteSorter::generateSortedBatch() {
         return nullptr;
 
     auto workGroupBuffer = Buffer::createStaticDraw(
-        "Work group buffer",
+        "WorkGroupBuffer",
         workGroups.data(),
         workGroups.size() * sizeof(WorkGroup)
     );
@@ -110,7 +110,7 @@ UPtr<SortedObjectBatch> ObjectSpriteSorter::generateSortedBatch() {
     }
 
     auto drawCommandBuffer = Buffer::createGPUExclusive(
-        "Draw command buffer",
+        "DrawCommandBuffer",
         workGroups.size() * sizeof(DrawCommand)
     );
 
@@ -155,8 +155,10 @@ void ObjectSpriteSorter::generateWorkGroupsForLayer(
             auto sprite = sprites[i];
             inputSpriteIndiciesOut.push_back(sprite->inputSpriteIndex);
             culledIndexBufferOutputIndex += sprite->triCount;
-            *preCulledSprites->at(currentSpriteIndex).groupCombinationIndex = gman.getGroupCombinationIndexForObject(sprite->object);
-            *preCulledSprites->at(currentSpriteIndex).startPosition = ccPointToGLM(sprite->object->m_startPosition);
+
+            (*preCulledSprites)[currentSpriteIndex].groupCombinationIndex = gman.getGroupCombinationIndexForObject(sprite->object);
+            (*preCulledSprites)[currentSpriteIndex].startPosition = ccPointToGLM(sprite->object->m_startPosition);
+
             currentSpriteIndex++;
             spritesToAdd--;
             i++;

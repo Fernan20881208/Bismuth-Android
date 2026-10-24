@@ -6,12 +6,11 @@
     shader code and can be used to disinguish
 */
 
-#ifndef SHADER_SHARED_H
-#define SHADER_SHARED_H
-
-#ifndef GLSL
+#ifdef __cplusplus
+#pragma once
 
 #include <common.hpp>
+#include <renderer/SAOBuffer.hpp>
 
 #define CREATE_ALIGNED_STRUCT(Name_, Base_, Align_) \
     struct alignas(Align_) Name_ : public Base_ { \
@@ -47,8 +46,6 @@ struct alignas(4) RGBA { u8 r, g, b, a; };
 
 #define UNIFORM_BUFFER(_BINDING) struct
 #define STORAGE_BUFFER(_BINDING) struct
-
-#include <renderer/SAOBuffer.hpp>
 
 #else // GLSL
 
@@ -111,13 +108,13 @@ mat2 scaleMatrix(float scale) {
 #define UNIFORM_BUFFER(BindingId_) layout (std140, binding = BindingId_) uniform
 #define STORAGE_BUFFER(BindingId_) layout (std430, binding = BindingId_) buffer
 
-#define _SAO_VARS_AS_MEMBERS(T, N) T N[SAO_ENTRY_COUNT];
+#define _SAO_VARS_AS_BUFFERS(BufferName_, Binding_, Type_, Name_) \
+    layout (std430, binding = Binding_) buffer Buffer_##_BufferName_##Name_ { \
+        Type_ BufferName_##_##Name_[]; \
+    };
 
-#define SAO_BUFFER(Vars_, Name_, BindingId_) \
-    layout (std430, binding = BindingId_) buffer Buffer_##Name_ { \
-        Vars_(_SAO_VARS_AS_MEMBERS) \
-    } Name_;
-
+#define SAO_BUFFER(Vars_, Name_) \
+    Vars_(Name_, _SAO_VARS_AS_BUFFERS)
 
 #endif // GLSL
 
@@ -127,35 +124,31 @@ mat2 scaleMatrix(float scale) {
 //// UNIFORM BUFFERS AND SHADER STORAGE BUFFERS ////
 ////////////////////////////////////////////////////
 
-#define PRE_CULLED_SPRITE(M) \
-    M(vec2, startPosition) \
-    M(uint, groupCombinationIndex)
-
-#define RAW_SPRITE(M) \
-    M(vec4, color) \
-    M(vec2, position) \
-    M(mat2, localTransform)
-
 #define COLOR_CHANNEL_BUFFER_BINDING     0
 #define GROUP_STATE_BUFFER_BINDING       1
 #define OBJECT_INFO_BUFFER_BINDING       2
 #define GAME_STATE_BUFFER_BINDING        3
+#define INPUT_SPRITE_BUFFER_BINDING      4
+#define WORK_GROUP_BUFFER_BINDING        5
+#define INPUT_INDEX_BUFFER_BINDING       6
+#define CULLED_INDEX_BUFFER_BINDING      7
+#define DRAW_COMMAND_BUFFER_BINDING      8
+#define SPRITE_REMAP_BUFFER_BINDING      9
+#define PRE_CULLED_SPRITE_BUFFER_BINDING 10
+#define VERTEX_BUFFER_BINDING            11
+#define CULLED_TRI_INDEX_BUFFER          12
 
-#define SAO_ENTRY_COUNT TOTAL_SPRITE_COUNT
-SAO_BUFFER(RAW_SPRITE, RawSprites, 4)
+#define PRE_CULLED_SPRITE(B, M) \
+    M(B, 13, vec2, startPosition) \
+    M(B, 14, uint, groupCombinationIndex)
 
-#define INPUT_SPRITE_BUFFER_BINDING      5
-#define WORK_GROUP_BUFFER_BINDING        6
-#define INPUT_INDEX_BUFFER_BINDING       7
-#define CULLED_INDEX_BUFFER_BINDING      8
-#define DRAW_COMMAND_BUFFER_BINDING      9
-#define SPRITE_REMAP_BUFFER_BINDING      10
-#define PRE_CULLED_SPRITE_BUFFER_BINDING 11
+#define RAW_SPRITE(B, M) \
+    M(B, 15, vec4, color) \
+    M(B, 16, vec2, position) \
+    M(B, 17, mat2, localTransform)
 
-SAO_BUFFER(PRE_CULLED_SPRITE, PreCulledSprites, 12)
-
-#define VERTEX_BUFFER_BINDING 13
-#define CULLED_TRI_INDEX_BUFFER 14
+SAO_BUFFER(RAW_SPRITE, RawSprite)
+SAO_BUFFER(PRE_CULLED_SPRITE, PreCulledSprite)
 
 struct ObjectVertex {
     vec2 positionOffset;
@@ -200,5 +193,3 @@ struct DrawCommand {
 #undef UNIFORM_BUFFER
 #undef STORAGE_BUFFER
 #endif
-
-#endif // SHADER_SHARED_H

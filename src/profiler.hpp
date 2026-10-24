@@ -15,7 +15,7 @@ class GPUTimer;
 
 namespace profiler {
 
-extern bool isTakingSnapshot;
+extern bool isTakingGPUTime;
 
 void functionPush(const char* name);
 

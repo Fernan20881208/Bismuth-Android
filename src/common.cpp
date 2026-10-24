@@ -10,6 +10,19 @@ $on_mod(Loaded) {
     modStartTime = std::chrono::high_resolution_clock::now();
 }
 
+bool isOpenGLAtLeastVersion(u32 major, u32 minor) {
+    std::string version = (const char*)glGetString(GL_VERSION);
+    if (version.starts_with("OpenGL ES"))
+        return false;
+
+    auto rawVersion = version.substr(0, version.find_first_of(' '));
+    auto ver = VersionInfo::parse(rawVersion);
+    if (!ver)
+        return false;
+
+    return VersionInfo(major, minor, 0) >= ver.unwrap();
+}
+
 using ProcGlObjectLabel = void(*)(GLenum, GLuint, GLsizei, const char*);
 
 ProcGlObjectLabel glObjectLabelProc = nullptr;

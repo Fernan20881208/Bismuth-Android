@@ -122,7 +122,7 @@ private:
     UPtr<Buffer> inputSpriteBuffer = nullptr;
 
     // GPU buffers
-    UPtr<RawSprites::Buffer> rawSpriteBuffer = nullptr;
+    UPtr<RawSprite::Buffer> rawSpriteBuffer = nullptr;
     UPtr<Buffer> culledIndexBuffer = nullptr;
 
     GPUTimer cullingComputeShaderTimer { "Culling compute shader time" };

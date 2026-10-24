@@ -88,8 +88,27 @@ static void removeLinesStartingWith(std::string& string, const std::string& star
     }
 }
 
+static UPtr<glslang::TShader> createGLSLangShader(EShLanguage stage, const std::string& code, const std::string& name) {
+    auto shader = std::make_unique<glslang::TShader>(stage);
+
+    const char* str   = code.c_str();
+    const char* sname = name.c_str();
+    int length = code.size();
+
+    shader->setStringsWithLengthsAndNames(&str, &length, &sname, 1);
+    shader->setEnvInput(glslang::EShSourceGlsl, stage, glslang::EShClientOpenGL, 450);
+    shader->setEnvClient(glslang::EShClientOpenGL, glslang::EShTargetOpenGL_450);
+    shader->setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_3);
+    shader->setOverrideVersion(450);
+    shader->setEntryPoint("main");
+    shader->setAutoMapLocations(true);
+    shader->setAutoMapBindings(true);
+
+    return shader;
+}
+
 // Confusingly, the enum for shader stages in glslang is called EShLanguage
-static std::optional<std::string> preprocessShader(EShLanguage stage, const std::string& code, const std::string& name) {
+static std::optional<std::string> preprocessShader(EShLanguage stage, std::string code, std::string name) {
     auto shader = std::make_unique<glslang::TShader>(stage);
 
     const char* str   = code.c_str();
@@ -115,24 +134,50 @@ static std::optional<std::string> preprocessShader(EShLanguage stage, const std:
         case EShLangVertex: shaderType = "vertex"; break;
         case EShLangFragment: shaderType = "fragment"; break;
         case EShLangCompute: shaderType = "compute"; break;
-        default: shaderType = "<unkown>"; break;
+        default: shaderType = "<unknown>"; break;
         }
         log::error("failed to preprocess {} shader (glslang):", shaderType);
         printErrorLog(shader->getInfoLog());
         return std::nullopt;
     }
 
-    log::info("{} preprocessed", name);
-
-    removeLinesStartingWith(codeOut, "#extension GL_ARB_shading_language_include");
-
-    if (!isNVidiaGPU())
-        removeLinesStartingWith(codeOut, "#line");
-
-    return "#version 460\n" + codeOut;
+    return codeOut;
 }
 
-static std::optional<std::string> preprocessShader(const fs::path& path, std::string preCode, EShLanguage stage) {
+static UPtr<glslang::TShader> compileShader(EShLanguage stage, std::string code, std::string name) {
+    auto res = preprocessShader(stage, code, name);
+    if (!res)
+        return nullptr;
+
+    std::string resCode = res.value();
+
+    auto shader = std::make_unique<glslang::TShader>(stage);
+
+    const char* str   = resCode.c_str();
+    const char* sname = name.c_str();
+    int length = resCode.size();
+
+    shader->setStringsWithLengthsAndNames(&str, &length, &sname, 1);
+    shader->setEnvInput(glslang::EShSourceGlsl, stage, glslang::EShClientOpenGL, 450);
+    shader->setEnvClient(glslang::EShClientOpenGL, glslang::EShTargetOpenGL_450);
+    shader->setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_3);
+    shader->setOverrideVersion(450);
+    shader->setEntryPoint("main");
+    shader->setAutoMapLocations(true);
+    shader->setAutoMapBindings(true);
+
+    CustomIncluder includer;
+
+    auto dres = getDefaultResources();
+    if (!shader->parse(&dres, 450, ENoProfile, false, false, EShMsgDefault, includer)) {
+        log::error("failed to compile shader {}:\n{}", name, shader->getInfoLog());
+        return nullptr;
+    }
+
+    return shader;
+}
+
+static std::optional<std::string> preprocessShaderFile(const fs::path& path, std::string preCode, EShLanguage stage) {
     auto source = readResourceFile(path);
     if (!source) {
         geode::log::error("could not find shader at path: {}", path);
@@ -142,18 +187,19 @@ static std::optional<std::string> preprocessShader(const fs::path& path, std::st
     auto shader = preprocessShader(stage, preCode + source.value(), path.string());
     if (!shader) return std::nullopt;
 
-    // log::info("{}:\n{}\n", path, shader.value());
+    std::string codeOut = shader.value();
 
-    return shader.value();
+    // log::info("{}:\n{}", path.string(), codeOut);
+
+    removeLinesStartingWith(codeOut, "#extension GL_ARB_shading_language_include");
+
+    if (!isNVidiaGPU())
+        removeLinesStartingWith(codeOut, "#line");
+
+    return "#version 460\n" + codeOut;
 }
 
-#define GL_COMPUTE_SHADER 0x91B9
-
-static u32 createShader(i32 type, const char* source) {
-    u32 shader = glCreateShader(type);
-    glShaderSource(shader, 1, &source, NULL);
-    glCompileShader(shader);
-
+static bool isShaderSuccessOrPrintError(u32 shader, i32 type) {
     i32 success;
     glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
     if (!success) {
@@ -167,8 +213,20 @@ static u32 createShader(i32 type, const char* source) {
         }
         geode::log::error("failed to compile {} shader:", shaderType);
         printErrorLog(log);
+        return false;
+    }
+    return true;
+}
+
+static u32 createShader(i32 type, const char* source) {
+    u32 shader = glCreateShader(type);
+    glShaderSource(shader, 1, &source, NULL);
+    glCompileShader(shader);
+
+    if (!isShaderSuccessOrPrintError(shader, type)) {
+        glDeleteShader(shader);
         return 0;
-    };
+    }
 
     return shader;
 }
@@ -193,6 +251,113 @@ static u32 createShaderProgram(const std::vector<u32>& shaders) {
     return program;
 }
 
+/*
+static u32 createPrecompiledShaderProgram(
+    std::map<EShLanguage, fs::path> paths,
+    std::string preCode
+) {
+    std::vector<UPtr<glslang::TShader>> shaders;
+    glslang::TProgram program;
+    std::map<EShLanguage, std::pair<std::string, std::string>> codesAndNames;
+
+    for (const auto& [stage, path] : paths) {
+        auto code = readResourceFile(path);
+        if (!code) {
+            log::error("failed to read shader file: {}", path);
+            return 0;
+        }
+
+        auto name = path.string();
+
+        auto res = preprocessShader(stage, preCode + code.value(), name);
+        if (!res)
+            return 0;
+
+        codesAndNames[stage] = {res.value(), name};
+    }
+
+    for (const auto& [stage, pair] : codesAndNames) {
+        const auto& name = pair.second;
+        const auto& resCode = pair.first;
+        
+        auto shader = std::make_unique<glslang::TShader>(stage);
+
+        const char* str   = resCode.c_str();
+        const char* sname = name.c_str();
+        int length = resCode.size();
+
+        shader->setStringsWithLengthsAndNames(&str, &length, &sname, 1);
+        shader->setEnvInput(glslang::EShSourceGlsl, stage, glslang::EShClientOpenGL, 450);
+        shader->setEnvClient(glslang::EShClientOpenGL, glslang::EShTargetOpenGL_450);
+        shader->setEnvTarget(glslang::EShTargetSpv, glslang::EShTargetSpv_1_3);
+        shader->setOverrideVersion(450);
+        shader->setEntryPoint("main");
+        shader->setAutoMapLocations(true);
+        shader->setAutoMapBindings(true);
+
+        CustomIncluder includer;
+
+        auto dres = getDefaultResources();
+        if (!shader->parse(&dres, 450, ENoProfile, false, false, EShMsgDefault, includer)) {
+            log::error("failed to compile shader {}:\n{}", name, shader->getInfoLog());
+            return 0;
+        }
+
+        program.addShader(shader.get());
+        shaders.push_back(std::move(shader));
+    }
+
+    if (!program.link(EShMsgDefault)) {
+        log::error("failed to link program:\n{}", program.getInfoLog());
+        return 0;
+    }
+
+    std::vector<u32> glshaders;
+
+    for (const auto& shader : shaders) {
+        auto stage = shader->getStage();
+        std::vector<u32> spirv;
+        glslang::SpvOptions options{};
+        options.validate = true;
+        glslang::GlslangToSpv(*program.getIntermediate(stage), spirv, &options);
+
+        u32 glstage;
+        switch (stage) {
+        case EShLangVertex: glstage = GL_VERTEX_SHADER; break;
+        case EShLangFragment: glstage = GL_FRAGMENT_SHADER; break;
+        case EShLangCompute: glstage = GL_COMPUTE_SHADER; break;
+        default:
+            continue;
+        }
+
+        u32 glshader = glCreateShader(glstage);
+
+        glShaderBinary(1, &glshader, GL_SHADER_BINARY_FORMAT_SPIR_V, spirv.data(), spirv.size() * sizeof(u32));
+        glSpecializeShader(glshader, "main", 0, nullptr, nullptr);
+
+        if (!isShaderSuccessOrPrintError(glshader, glstage)) {
+            glDeleteShader(glshader);
+            continue;
+        }
+
+        glshaders.push_back(glshader);
+    }
+
+    if (glshaders.size() != shaders.size()) {
+        for (auto shader : glshaders)
+            glDeleteShader(shader);
+        return 0;
+    }
+
+    u32 glprogram = createShaderProgram(glshaders);
+
+    for (auto shader : glshaders)
+        glDeleteShader(shader);
+
+    return glprogram;
+}
+*/
+
 static inline std::string generatePreCode(std::map<std::string, std::string> macroVariables) {
     std::string preCode = "#define GLSL\n";
     for (auto [k, v] : macroVariables)
@@ -207,8 +372,27 @@ UPtr<Shader> Shader::create(
 ) {
     auto preCode = generatePreCode(macroVariables);
 
-    auto vertexSource   = preprocessShader(vertexPath, preCode, EShLangVertex);
-    auto fragmentSource = preprocessShader(fragmentPath, preCode, EShLangFragment);
+    /*
+    if (isNVidiaGPU() && isOpenGLAtLeastVersion(4, 6)) {
+        u32 program = createPrecompiledShaderProgram(
+            {
+                {EShLangVertex, vertexPath},
+                {EShLangFragment, fragmentPath}
+            },
+            preCode
+        );
+
+        if (program == 0)
+            return nullptr;
+
+        auto ret = std::make_unique<Shader>();
+        ret->program = program;
+        return ret;
+    }
+    */
+
+    auto vertexSource   = preprocessShaderFile(vertexPath, preCode, EShLangVertex);
+    auto fragmentSource = preprocessShaderFile(fragmentPath, preCode, EShLangFragment);
 
     if (!vertexSource || !fragmentSource)
         return nullptr;
@@ -238,7 +422,26 @@ UPtr<Shader> Shader::create(
 UPtr<Shader> Shader::createCompute(const fs::path& path, std::map<std::string, std::string> macroVariables) {
     auto preCode = generatePreCode(macroVariables);
 
-    auto source = preprocessShader(path, preCode, EShLangCompute);
+    /*
+    if (isNVidiaGPU() && isOpenGLAtLeastVersion(4, 6)) {
+        u32 program = createPrecompiledShaderProgram(
+            {
+                {EShLangCompute, path}
+            },
+            preCode
+        );
+
+        if (program == 0)
+            return nullptr;
+
+        auto ret = std::make_unique<Shader>();
+        log::info("GroupStateBuffer {}", glGetUniformBlockIndex(program, "GroupStateBuffer"));
+        ret->program = program;
+        return ret;
+    }
+    */
+
+    auto source = preprocessShaderFile(path, preCode, EShLangCompute);
     if (!source)
         return nullptr;
 
@@ -256,6 +459,34 @@ UPtr<Shader> Shader::createCompute(const fs::path& path, std::map<std::string, s
     auto ret = std::make_unique<Shader>();
     ret->program = program;
     return ret;
+}
+
+static void bindBufferToShader(u32 program, u32 index, u32 binding, bool ssbo) {
+    if (ssbo)
+        glShaderStorageBlockBinding(program, index, binding);
+    else
+        glUniformBlockBinding(program, index, binding);
+}
+
+u32 Shader::getBufferBinding(const char* name, bool ssbo) {
+    auto it = bufferBindings.find(name);
+    if (it != bufferBindings.end()) {
+        bindBufferToShader(program, it->second.index, it->second.binding, ssbo);
+        return it->second.binding;
+    }
+
+    u32 binding = bufferBindingCounter++;
+
+    u32 index;
+    if (ssbo)
+        index = glGetProgramResourceIndex(program, GL_SHADER_STORAGE_BLOCK, name);
+    else
+        index = glGetUniformBlockIndex(program, name);
+
+    bindBufferToShader(program, index, binding, ssbo);
+    
+    bufferBindings[name] = {binding, index};
+    return binding;
 }
 
 void Shader::setMatrix4(u32 location, const float* data) {
