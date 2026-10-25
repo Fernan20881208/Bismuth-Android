@@ -39,11 +39,11 @@ class $modify(RendererPlayLayer, PlayLayer) {
                 batchLayer->addChild(renderer, -100000);
         }
 
-        PlayLayer::resetLevel();
-
         auto renderer = Renderer::get();
         if (renderer)
             renderer->reset();
+
+        PlayLayer::resetLevel();
     }
 
     void updateVisibility(float dt) {

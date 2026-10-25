@@ -88,7 +88,20 @@ void processSprite(uint preCulledSpriteIndex) {
     case SPRITE_TYPE_BLACK:  colorChannel = COLOR_CHANNEL_BLACK; break;
     }
 
-    vec4 color = RGBA_TO_VEC4(u_channelColors[colorChannel]);
+    vec4 color;
+    if (colorChannel == COLOR_CHANNEL_LIGHTER) {
+        color = RGBA_TO_VEC4(u_channelColors[object.baseColorChannelId]);
+
+        HSVStruct hsv;
+        hsv.hue = 0.0;
+        hsv.sat = 0.65;
+        hsv.val = 1.15;
+        hsv.satAdd = false;
+        hsv.valAdd = true;
+
+        color = applyHSVStruct(hsv, color);
+    } else
+        color = RGBA_TO_VEC4(u_channelColors[colorChannel]);
 
     if (spriteType == SPRITE_TYPE_GLOW && (objectFlags & OBJECT_FLAG_SPECIAL_GLOW_COLOR) != 0)
         color = vec4(u_specialLightBGColor, 1.0);

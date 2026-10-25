@@ -27,28 +27,43 @@ vec3 hsv2rgb(vec3 c) {
     return c.z * mix(K.xxx, clamp(p - K.xxx, 0.0, 1.0), c.y);
 }
 
-vec4 applyHSV(HSV hsvValue, vec4 color) {
-    float hue = float(int((hsvValue >> HSV_HUE_BIT) & HSV_HUE_MASK) - 256) / 360.0;
-    float sat = float((hsvValue >> HSV_SAT_BIT) & HSV_SAT_MASK) / 127.5;
-    float val = float((hsvValue >> HSV_VAL_BIT) & HSV_VAL_MASK) / 127.5;
-    
+struct HSVStruct {
+    float hue;
+    float sat;
+    float val;
+    bool satAdd;
+    bool valAdd;
+};
+
+vec4 applyHSVStruct(HSVStruct hsvValue, vec4 color) {
     vec3 hsv = rgb2hsv(color.rgb);
 
-    hsv.x = mod(hsv.x + hue, 1.0);
+    hsv.x = mod(hsv.x + hsvValue.hue, 1.0);
 
-    if ((hsvValue & HSV_SAT_ADD) != 0)
-        hsv.y += sat - 1.0;
+    if (hsvValue.satAdd)
+        hsv.y += hsvValue.sat - 1.0;
     else
-        hsv.y *= sat;
+        hsv.y *= hsvValue.sat;
 
-    if ((hsvValue & HSV_VAL_ADD) != 0)
-        hsv.z += val - 1.0;
+    if (hsvValue.valAdd)
+        hsv.z += hsvValue.val - 1.0;
     else
-        hsv.z *= val;
+        hsv.z *= hsvValue.val;
 
     hsv.y = clamp(hsv.y, 0.0, 1.0);
     hsv.z = clamp(hsv.z, 0.0, 1.0);
     return vec4(hsv2rgb(hsv), color.a);
+}
+
+vec4 applyHSV(HSV hsvValue, vec4 color) {
+    HSVStruct hsv;
+    hsv.hue = float(int((hsvValue >> HSV_HUE_BIT) & HSV_HUE_MASK) - 256) / 360.0;
+    hsv.sat = float((hsvValue >> HSV_SAT_BIT) & HSV_SAT_MASK) / 127.5;
+    hsv.val = float((hsvValue >> HSV_VAL_BIT) & HSV_VAL_MASK) / 127.5;
+    hsv.satAdd = (hsvValue & HSV_SAT_ADD) != 0;
+    hsv.valAdd = (hsvValue & HSV_VAL_ADD) != 0;
+
+    return applyHSVStruct(hsv, color);
 }
 
 #endif
