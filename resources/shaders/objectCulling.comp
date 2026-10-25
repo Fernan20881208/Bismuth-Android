@@ -143,12 +143,12 @@ bool isObjectOnScreen() {
 
     vec2 screenPos = vec2(dot(u_cameraRight, offset), dot(u_cameraUp, offset));
 
-    const float leeway = 30.0;
+    const float threshold = 100.0;
 
-    return screenPos.x >= -leeway &&
-           screenPos.x <= u_cameraSize.x + leeway &&
-           screenPos.y >= -leeway &&
-           screenPos.y <= u_cameraSize.y + leeway;
+    return screenPos.x >= -threshold &&
+           screenPos.x <= u_cameraSize.x + threshold &&
+           screenPos.y >= -threshold &&
+           screenPos.y <= u_cameraSize.y + threshold;
 }
 
 float calculateAudioScale() {

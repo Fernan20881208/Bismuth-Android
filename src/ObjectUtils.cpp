@@ -34,6 +34,17 @@ const char* spriteSheetAsString(SpriteSheet spriteSheet) {
     }
 }
 
+const char* spriteTypeAsString(SpriteType type) {
+    switch (type) {
+    case SpriteType::BASE:   return "BASE";
+    case SpriteType::DETAIL: return "DETAIL";
+    case SpriteType::BLACK:  return "BLACK";
+    case SpriteType::GLOW:   return "GLOW";
+    default:
+        return "<unknown>";
+    }
+}
+
 u8 LayerKey::asNumber() const {
     u8 zlayerKey = (u8)zlayer;
     switch (zlayer) {
@@ -132,13 +143,18 @@ void ObjectUtils::unpackSpriteRecursively(
 ) {
     transform = CCAffineTransformConcat(sprite->nodeToParentTransform(), transform);
 
-    bool isSpriteBlack = (sprite == object) ? object->m_isObjectBlack : object->m_isColorSpriteBlack;
-
-    if (sprite->getTag() == 997)
-        isSpriteBlack = false;
+    bool isSpriteBlack = false;
 
     if (sprite == object->m_colorSprite) type = SpriteType::DETAIL;
     if (sprite == object->m_glowSprite)  type = SpriteType::GLOW;
+
+    if (sprite == object)
+        isSpriteBlack = object->m_isObjectBlack;
+    else if (type != SpriteType::GLOW)
+        isSpriteBlack = object->m_isColorSpriteBlack;
+
+    if (sprite->getTag() == 997)
+        isSpriteBlack = false;
 
     CCArrayExt<CCSprite*> spriteChildren = sprite->getChildren();
 

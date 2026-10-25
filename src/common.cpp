@@ -20,7 +20,7 @@ bool isOpenGLAtLeastVersion(u32 major, u32 minor) {
     if (!ver)
         return false;
 
-    return VersionInfo(major, minor, 0) >= ver.unwrap();
+    return VersionInfo(major, minor, 0) <= ver.unwrap();
 }
 
 using ProcGlObjectLabel = void(*)(GLenum, GLuint, GLsizei, const char*);

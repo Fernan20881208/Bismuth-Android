@@ -21,7 +21,7 @@ void ObjectBatchNode::draw() {
     ccGLBindTexture2D(spriteSheetTexture->getName());
 
     glEnable(GL_BLEND);
-    if (layerId.blending)
+    if (layerId.blending || layerId.spriteSheet == SpriteSheet::GLOW)
         ccGLBlendFunc(GL_SRC_ALPHA, GL_ONE);
     else
         ccGLBlendFunc(GL_ONE, GL_ONE_MINUS_SRC_ALPHA);

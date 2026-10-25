@@ -48,6 +48,16 @@ bool Renderer::init(PlayLayer* layer, CCArray* levelObjects) {
         return false;
     currentRenderer = this;
 
+    if (!isOpenGLAtLeastVersion(4, 3)) {
+        Notification::create(
+            "Your device doesn't support the required OpenGL 4.3\nPlease update your drivers",
+            NotificationIcon::Error,
+            5.0f
+        )->show();
+        log::error("Device doesn't support OpenGL 4.3. OpenGL Version: {}", (const char*)glGetString(GL_VERSION));
+        return false;
+    }
+
     if (!hasLoadedNewerOpenGLFunctions())
         loadNewerOpenGLFunctions();
 
@@ -105,6 +115,9 @@ bool Renderer::init(PlayLayer* layer, CCArray* levelObjects) {
         DEBUG_LOG("  - opacityMod: {}", object->m_opacityMod);
         DEBUG_LOG("  - isDecoration2: {}", object->m_isDecoration2);
         DEBUG_LOG("  - colorSprite: {}", object->m_colorSprite);
+        DEBUG_LOG("  - glowSprite: {}", object->m_glowSprite);
+        DEBUG_LOG("  - isColorSpriteBlack: {}", object->m_isColorSpriteBlack);
+        DEBUG_LOG("  - isObjectBlack: {}", object->m_isObjectBlack);
         DEBUG_LOG("  - activeMainColorID: {}", object->m_activeMainColorID);
         DEBUG_LOG("  - activeDetailColorID: {}", object->m_activeDetailColorID);
         if (object->m_baseColor && object->m_baseColor->m_usesHSV)
