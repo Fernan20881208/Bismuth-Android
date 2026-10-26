@@ -106,7 +106,6 @@ void GroupManager::initWithObjects(cocos2d::CCArray* objects) {
     u32 alphaCombIndex     = 0;
 
     alphaIndiciesPerGroupCombinationIndex.resize(groupCombinationCount);
-    haveGroupStatesScaled.resize(groupCombinationCount);
 
     for (auto object : CCArrayExt<GameObject*>(objects)) {
         GroupCombination comb = GroupCombination(object);
@@ -146,6 +145,8 @@ void GroupManager::initWithObjects(cocos2d::CCArray* objects) {
 
     groupStateBuffer = Buffer::createDynamicDraw("GroupStateBuffer", getGroupStateBufferSize());
     groupStates = (GroupCombinationState*)groupStateBuffer->mapReadWrite();
+
+    isGroupToggledOn.resize(maxGroupId + 1, true);
 
     fetchVanilaRotateGroups();
 }
@@ -195,7 +196,7 @@ void GroupManager::fetchVanilaRotateGroups() {
 void GroupManager::prepareGroupStateBuffer() {
     PROFILER_PUSH("GroupManager::prepareGroupStateBuffer");
     for (u32 id = 1; id <= maxGroupId; id++) {
-        if (!disabledGroups.contains(id))
+        if (isGroupToggledOn[id])
             alphaValuesPerGroupId[id] = renderer.getPlayLayer()->m_effectManager->opacityModForGroup(id);
         else
             alphaValuesPerGroupId[id] = 0.0;
@@ -217,6 +218,38 @@ void GroupManager::prepareGroupStateBuffer() {
 
     groupStateBuffer->flush(0, groupStateBuffer->getSize());
     PROFILER_POP();
+}
+
+void GroupManager::storeGroupStates(StoredGroupStates& storage) {
+    storage.groupStates.resize(groupCombinationCount);
+    std::memcpy(storage.groupStates.data(), groupStates, getGroupStateBufferSize());
+
+    storage.isGroupToggledOn.resize(isGroupToggledOn.size());
+    std::copy(isGroupToggledOn.begin(), isGroupToggledOn.end(), storage.isGroupToggledOn.begin());
+}
+
+void GroupManager::restoreGroupStates(StoredGroupStates& storage) {
+    usize numToCopy = std::min<usize>(storage.groupStates.size(), groupCombinationCount);
+    std::memcpy(groupStates, storage.groupStates.data(), numToCopy * sizeof(GroupCombinationState));
+
+    std::copy(storage.isGroupToggledOn.begin(), storage.isGroupToggledOn.end(), isGroupToggledOn.begin());
+}
+
+void GroupManager::storeCheckpoint(CheckpointObject* checkpoint) {
+    auto& groupStates = storedCheckpointGroupStates[checkpoint];
+    storeGroupStates(groupStates);
+}
+
+void GroupManager::restoreCheckpoint(CheckpointObject* checkpoint) {
+    if (!storedCheckpointGroupStates.contains(checkpoint))
+        return;
+
+    auto& groupStates = storedCheckpointGroupStates[checkpoint];
+    restoreGroupStates(groupStates);
+}
+
+void GroupManager::removeCheckpoint(CheckpointObject* checkpoint) {
+    storedCheckpointGroupStates.erase(checkpoint);
 }
 
 void GroupManager::moveGroup(GroupID groupId, float deltaX, float deltaY) {
@@ -251,16 +284,11 @@ void GroupManager::rotateGroup(
         auto center = centerPoint.value();
         groupState.positionalTransform *= matrix;
         groupState.offset = matrix * (groupState.offset - center) + center;
-        
-        haveGroupStatesScaled[combIndex] = true;
     }
 }
 
-void GroupManager::toggleGroup(GroupID groupId, bool visible) {
-    if (visible)
-        disabledGroups.erase(groupId);
-    else
-        disabledGroups.insert(groupId);
+void GroupManager::toggleGroup(GroupID groupId, bool enabled) {
+    isGroupToggledOn[groupId] = enabled;
 }
 
 void GroupManager::resetGroupStates() {
@@ -269,8 +297,7 @@ void GroupManager::resetGroupStates() {
         groupState.localTransform = glm::identity<glm::mat2>();
         groupState.offset = glm::vec2(0, 0);
     }
-    disabledGroups.clear();
-    std::fill(haveGroupStatesScaled.begin(), haveGroupStatesScaled.end(), false);
+    std::fill(isGroupToggledOn.begin(), isGroupToggledOn.end(), true);
 }
 
 void GroupManager::addGroupCombination(GroupCombination& comb, GroupCombinationIndex index) {

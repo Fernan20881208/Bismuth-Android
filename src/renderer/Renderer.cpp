@@ -47,7 +47,7 @@ bool Renderer::init(PlayLayer* layer, CCArray* levelObjects) {
     if (currentRenderer)
         return false;
     currentRenderer = this;
-
+    
     if (!isOpenGLAtLeastVersion(4, 3)) {
         Notification::create(
             "Your device doesn't support the required OpenGL 4.3\nPlease update your drivers",

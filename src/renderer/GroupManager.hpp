@@ -77,6 +77,11 @@ private:
 
 class Renderer;
 
+struct StoredGroupStates {
+    std::vector<GroupCombinationState> groupStates;
+    std::vector<bool> isGroupToggledOn;
+};
+
 class GroupManager {
 public:
     inline GroupManager(Renderer& renderer)
@@ -108,27 +113,29 @@ public:
     inline u32 getGroupCombinationCount() const { return groupCombinationCount; }
     inline u32 getTransformCombinationCount() const { return transformCombinationCount; }
 
-    inline void bindGroupStateBuffer() {
-        groupStateBuffer->bindAsStorageBuffer(GROUP_STATE_BUFFER_BINDING);
-    }
+    inline void bindGroupStateBuffer() { groupStateBuffer->bindAsStorageBuffer(GROUP_STATE_BUFFER_BINDING); }
 
-    inline isize getGroupStateBufferSize() {
-        return groupCombinationCount * sizeof(GroupCombinationState);
-    }
+    inline isize getGroupStateBufferSize() { return groupCombinationCount * sizeof(GroupCombinationState); }
 
     inline std::span<GroupCombinationState> getGroupStates() {
         return { groupStates, groupStates + getGroupCombinationCount() };
     }
 
-    inline bool hasGroupStateScaled(i32 index) { return haveGroupStatesScaled[index]; }
-
-    inline const std::set<GameObject*> getVanillaRotateGroup(GroupID id) {
-        return vanillaRotateGroups[id];
-    }
+    inline const std::set<GameObject*> getVanillaRotateGroup(GroupID id) { return vanillaRotateGroups[id]; }
 
     void fetchVanilaRotateGroups();
 
     void prepareGroupStateBuffer();
+
+    void storeGroupStates(StoredGroupStates& storage);
+
+    void restoreGroupStates(StoredGroupStates& storage);
+
+    void storeCheckpoint(CheckpointObject* checkpoint);
+
+    void restoreCheckpoint(CheckpointObject* checkpoint);
+
+    void removeCheckpoint(CheckpointObject* checkpoint);
 
     //// TRIGGER ACTIONS ////
 
@@ -153,12 +160,26 @@ private:
 private:
     Renderer& renderer;
 
+    //// VARIABLES OF THE CURRENT GROUP STATES ////
+
     // GroupCombinationState struct can be found in resources/shaders/shared.h
-    // std::vector<GroupCombinationState> groupStates;
     GroupCombinationState* groupStates;
     UPtr<Buffer> groupStateBuffer = nullptr;
 
-    std::vector<bool> haveGroupStatesScaled;
+    std::vector<bool> isGroupToggledOn;
+
+    //// VARIABLES FOR COMBINING GROUP ALPHA ////
+
+    std::vector<u32> alphaIndiciesPerGroupCombinationIndex;
+    std::vector<u32> alphaIndexGroupIdFastStructure;
+    std::vector<float> alphaValuesPerGroupId;
+    std::vector<float> alphaValuesPerAlphaIndex;
+
+    //// CHECKPOINT STORAGE ////
+
+    std::unordered_map<CheckpointObject*, StoredGroupStates> storedCheckpointGroupStates;
+    
+    //// PRE-PROCESSED GROUP INFO ////
 
     u32 groupCombinationCount;
     std::map<GroupCombination, GroupCombinationIndex> groupCombinationIndicies;
@@ -168,11 +189,6 @@ private:
 
     u32 alphaIndiciesCount;
     std::map<GroupCombination, u32> alphaIndicies;
-
-    std::vector<u32> alphaIndiciesPerGroupCombinationIndex;
-    std::vector<u32> alphaIndexGroupIdFastStructure;
-    std::vector<float> alphaValuesPerGroupId;
-    std::vector<float> alphaValuesPerAlphaIndex;
 
     std::vector<GroupCombinationIndex> firstGroupIndexPerTransformIndex;
 
@@ -197,8 +213,6 @@ private:
     std::set<GroupID> transformGroupIds;
 
     std::set<GroupID> alphaGroupIds;
-
-    std::set<GroupID> disabledGroups;
 
     /*
         These are groups with objects that have to rotate

@@ -59,6 +59,42 @@ class $modify(RendererPlayLayer, PlayLayer) {
         // ((decomp_PlayLayer*)this)->virtual_updateVisibility(dt);
         timer.end();
     }
+
+    CheckpointObject* createCheckpoint() {
+        CheckpointObject* ret = PlayLayer::createCheckpoint();
+
+        auto renderer = Renderer::get();
+        if (renderer)
+            renderer->getGroupManager().storeCheckpoint(ret);
+        
+        return ret;
+    }
+
+    void loadFromCheckpoint(CheckpointObject* object) {
+        PlayLayer::loadFromCheckpoint(object);
+
+        auto renderer = Renderer::get();
+        if (renderer)
+            renderer->getGroupManager().restoreCheckpoint(object);
+    }
+};
+
+#include <Geode/modify/CheckpointObject.hpp>
+class $modify(MyCheckpointObject, CheckpointObject) {
+    struct Fields {
+        CheckpointObject* checkpoint;
+        ~Fields() {
+            auto renderer = Renderer::get();
+            if (renderer)
+                renderer->getGroupManager().removeCheckpoint(checkpoint);
+        }
+    };
+
+    bool init() {
+        if (!CheckpointObject::init()) return false;
+        m_fields.self()->checkpoint = this;
+        return true;
+    }
 };
 
 #include <Geode/modify/GameObject.hpp>
