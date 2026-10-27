@@ -37,6 +37,7 @@ struct SortedObjectBatch {
 
 class WorkGroupScheduler {
 public:
+    WorkGroupScheduler();
     ~WorkGroupScheduler();
 
     void addSprite(
@@ -54,26 +55,15 @@ public:
     SortedObjectBatch* fetchSortedBatchForBlendStates(const ColorChannelBlendStates& blendStates);
 
     inline void waitForJobs() {
-        if (thread.joinable())
-            thread.join();
+        for (auto& [k, job] : currentGenerationJobs)
+            if (job->thread.joinable())
+                job->thread.join();
     }
 
 private:
-    void executeGenerateJobs();
+    void cleanUpFinishedJobs();
 
-    void sortForBlendStates(const ColorChannelBlendStates& blendStates);
-
-    UPtr<SortedObjectBatch> generateSortedBatchForBlendStates(
-        ColorChannelBlendStates blendStates,
-        UPtr<SortedObjectBatch> sortedBatch
-    );
-
-    void generateWorkGroupsForLayer(
-        LayerKey layerKey,
-        u32 spritesPerWorkGroup,
-        u32& culledIndexBufferOutputIndex,
-        PreCulledSprite::Buffer* preCulledSprites
-    );
+    void addGenerationJob(const ColorChannelBlendStates& blendStates);
 
 private:
     struct SpriteEntry {
@@ -96,25 +86,52 @@ private:
         UPtr<SortedObjectBatch> sortedBatch;
     };
 
+    struct GenerationJob {
+        //// INPUTS ////
+        // scheduler may only be accessed if its mutex has been locked!
+        WorkGroupScheduler& scheduler;
+        
+        ColorChannelBlendStates blendStates;
+        UPtr<PreCulledSprite::Buffer> preCulledSprites;
+
+        isize maxWorkGroupCount = -1;
+
+        //// THREAD ////
+        std::thread thread;
+
+        //// VARIABLES USED IN GENERATION ////
+        usize currentSpriteIndex;
+
+        std::unordered_map<LayerKey, std::vector<const SpriteEntry*>> sortedSpriteLayers;
+        std::vector<u32> inputSpriteIndicies;
+        std::vector<WorkGroup> workGroups;
+
+        inline ~GenerationJob() {
+            if (thread.joinable())
+                thread.join();
+        }
+
+        void generateSortedBatchForBlendStates();
+
+        void loadAndSortSprites(const std::vector<SpriteEntry>& sprites);
+
+        void generateWorkGroupsForLayer(
+            LayerKey layerKey,
+            u32 spritesPerWorkGroup,
+            u32& culledIndexBufferOutputIndex
+        );
+    };
+
     std::thread thread;
 
     isize maxWorkGroupCount = -1;
 
-    //// VARIABLES ACCESSED BY BOTH THREADS ////
+    std::map<ColorChannelBlendStates, UPtr<GenerationJob>> currentGenerationJobs;
 
-    std::map<ColorChannelBlendStates, UPtr<SortedObjectBatch>> sortedBatchesPerBlendStates;
-    std::queue<GenerateJob> generateJobs;
-
-    std::atomic<bool> currentlyExecutingJobs = false;
-
+    //// VARIABLES ACCESSED BY ALL THREADS ////
+    
     std::mutex mutex;
 
-    //// INFO FOR GENERATING THREAD ////
-    u8 _padding[std::hardware_destructive_interference_size];
-
-    usize currentSpriteIndex;
-
-    std::unordered_map<LayerKey, std::vector<SpriteEntry*>> sortedSpriteLayers;
-    std::vector<u32> inputSpriteIndicies;
-    std::vector<WorkGroup> workGroups;
+    std::map<ColorChannelBlendStates, UPtr<SortedObjectBatch>> sortedBatchesPerBlendStates;
+    std::set<GenerationJob*> finishedGenerationJobs;
 };

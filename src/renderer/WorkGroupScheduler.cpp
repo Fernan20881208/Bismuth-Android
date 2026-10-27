@@ -46,6 +46,16 @@ void SortedObjectBatch::bindBuffers() {
     preCulledSpritesBuffer->bind();
 }
 
+WorkGroupScheduler::WorkGroupScheduler() {
+    if (maxWorkGroupCount == -1) {
+        maxWorkGroupCount = getGPUCoreCount();
+        if (maxWorkGroupCount == -1)
+            maxWorkGroupCount = 8000; // dummy value
+        else
+            maxWorkGroupCount = (double)maxWorkGroupCount * WORK_GROUPS_PER_GPU_CORES;
+    }
+}
+
 WorkGroupScheduler::~WorkGroupScheduler() {
     if (thread.joinable())
         thread.join();
@@ -71,87 +81,67 @@ void WorkGroupScheduler::addSprite(
 }
 
 SortedObjectBatch* WorkGroupScheduler::fetchSortedBatchForBlendStates(const ColorChannelBlendStates& blendStates) {
-    std::scoped_lock (mutex);
-
-    if (maxWorkGroupCount == -1) {
-        maxWorkGroupCount = getGPUCoreCount();
-        if (maxWorkGroupCount == -1)
-            maxWorkGroupCount = 8000; // dummy value
-        else
-            maxWorkGroupCount = (double)maxWorkGroupCount * WORK_GROUPS_PER_GPU_CORES;
-    }
+    cleanUpFinishedJobs();
     
-    if (sortedBatchesPerBlendStates.contains(blendStates))
-        return sortedBatchesPerBlendStates[blendStates].get();
-
-    auto sortedBatch = std::make_unique<SortedObjectBatch>();
-    sortedBatch->preCulledSpritesBuffer = PreCulledSprite::Buffer::create(spriteEntries.size(), GL_STATIC_DRAW);
-
-    generateJobs.emplace(GenerateJob {blendStates, std::move(sortedBatch)});
-
-    if (!currentlyExecutingJobs.load()) {
-        if (thread.joinable())
-            thread.join();
-
-        currentlyExecutingJobs.store(true);
-        thread = std::thread(&WorkGroupScheduler::executeGenerateJobs, this);
-        //executeGenerateJobs();
+    {
+        std::scoped_lock lock(mutex);
+        if (sortedBatchesPerBlendStates.contains(blendStates))
+            return sortedBatchesPerBlendStates[blendStates].get();
     }
 
+    addGenerationJob(blendStates);
     return nullptr;
 }
 
-void WorkGroupScheduler::executeGenerateJobs() {
-    while (1) {
-        GenerateJob job;
+void WorkGroupScheduler::cleanUpFinishedJobs() {
+    std::scoped_lock lock(mutex);
 
-        {
-            std::scoped_lock (mutex);
-            if (generateJobs.empty())
+    while (!finishedGenerationJobs.empty()) {
+        GenerationJob* job = *finishedGenerationJobs.begin();
+        finishedGenerationJobs.erase(job);
+
+        for (auto it = currentGenerationJobs.begin(); it != currentGenerationJobs.end(); it++) {
+            if (it->second.get() == job) {
+                currentGenerationJobs.erase(it);
                 break;
-            job = std::move(generateJobs.front());
-            generateJobs.pop(); 
+            }
         }
-
-        auto sortedBatch = generateSortedBatchForBlendStates(job.blendStates, std::move(job.sortedBatch));
-
-        {
-            std::scoped_lock (mutex);
-            sortedBatchesPerBlendStates[job.blendStates] = std::move(sortedBatch);
-        }
-    }
-
-    currentlyExecutingJobs.store(false);
-}
-
-void WorkGroupScheduler::sortForBlendStates(const ColorChannelBlendStates& blendStates) {
-    assert(!spriteEntries.empty());
-
-    sortedSpriteLayers.clear();
-
-    for (auto& sprite : spriteEntries) {
-        auto key = sprite.getFullLayerKey(blendStates);
-        sortedSpriteLayers[key].push_back(&sprite);
-    }
-
-    for (auto& [key, layer] : sortedSpriteLayers) {
-        std::sort(layer.begin(), layer.end(), [](const SpriteEntry* a, const SpriteEntry* b) {
-            return a->zOrder < b->zOrder;
-        });
     }
 }
 
-UPtr<SortedObjectBatch> WorkGroupScheduler::generateSortedBatchForBlendStates(
-    ColorChannelBlendStates blendStates,
-    UPtr<SortedObjectBatch> sortedBatch
-) {
-    sortForBlendStates(blendStates);
+void WorkGroupScheduler::addGenerationJob(const ColorChannelBlendStates& blendStates) {
+    std::scoped_lock lock(mutex);
+    if (currentGenerationJobs.contains(blendStates))
+        return;
+
+    auto job = std::make_unique<GenerationJob>(*this);
+
+    job->blendStates = blendStates;
+    job->preCulledSprites = PreCulledSprite::Buffer::create(spriteEntries.size(), GL_STATIC_DRAW);
+    job->maxWorkGroupCount = maxWorkGroupCount;
+
+    job->thread = std::thread(&GenerationJob::generateSortedBatchForBlendStates, job.get());
+
+    currentGenerationJobs[blendStates] = std::move(job);
+}
+
+LayerKey WorkGroupScheduler::SpriteEntry::getFullLayerKey(const ColorChannelBlendStates& blendingStates) const {
+    return { zLayer, spriteSheet, blendingStates[colorChannelId] };
+}
+
+void WorkGroupScheduler::GenerationJob::generateSortedBatchForBlendStates() {
+    usize spriteCount;
+    {
+        std::scoped_lock lock(scheduler.mutex);
+        spriteCount = scheduler.spriteEntries.size();
+        loadAndSortSprites(scheduler.spriteEntries);
+    }
 
     inputSpriteIndicies.clear();
-    inputSpriteIndicies.reserve(spriteEntries.size());
+    inputSpriteIndicies.reserve(spriteCount);
 
-    u32 approxWorkGroupCount = std::min<u32>(spriteEntries.size(), maxWorkGroupCount);
-    u32 approxSpritesPerWorkGroup = spriteEntries.size() / approxWorkGroupCount;
+    u32 approxWorkGroupCount = std::min<u32>(spriteCount, maxWorkGroupCount);
+    u32 approxSpritesPerWorkGroup = spriteCount / approxWorkGroupCount;
 
     workGroups.clear();
     workGroups.reserve(approxWorkGroupCount + 100);
@@ -161,12 +151,10 @@ UPtr<SortedObjectBatch> WorkGroupScheduler::generateSortedBatchForBlendStates(
     u32 outIndex = 0;
     std::map<LayerKey, WorkGroupRange> workGroupRangePerLayerKey;
 
-    log::info("Generating new SortedObjectBatch for (new) channel color blending states...");
-
     for (auto& [key, layer] : sortedSpriteLayers) {
         // log::info("Process layer: {}", key.toString());
         u32 workGroupStartIndex = workGroups.size();
-        generateWorkGroupsForLayer(key, approxSpritesPerWorkGroup, outIndex, sortedBatch->preCulledSpritesBuffer.get());
+        generateWorkGroupsForLayer(key, approxSpritesPerWorkGroup, outIndex);
         u32 workGroupEndIndex = workGroups.size();
 
         workGroupRangePerLayerKey[key] = {
@@ -189,10 +177,11 @@ UPtr<SortedObjectBatch> WorkGroupScheduler::generateSortedBatchForBlendStates(
     usize totalSize = inputSpriteIndicies.size() * sizeof(u32) +
                       workGroups.size() * sizeof(WorkGroup) +
                       drawCommands.size() * sizeof(DrawCommand) +
-                      sortedBatch->preCulledSpritesBuffer->getByteSize();
+                      preCulledSprites->getByteSize();
 
-    log::info("  - Work group count: {}", workGroups.size());
-    log::info("  - SortedObjectBatch VRAM usage: {}", byteSizeToString(totalSize));
+    log::info("Generated SortedObjectBatch: workGroupCount={}, vramUsage={}", workGroups.size(), byteSizeToString(totalSize));
+
+    auto sortedBatch = std::make_unique<SortedObjectBatch>();
 
     sortedBatch->workGroupCount = (u32)workGroups.size();
     sortedBatch->workGroupRangePerLayerKey = std::move(workGroupRangePerLayerKey);
@@ -200,53 +189,35 @@ UPtr<SortedObjectBatch> WorkGroupScheduler::generateSortedBatchForBlendStates(
     sortedBatch->inputSpriteIndicies = std::move(inputSpriteIndicies);
     sortedBatch->workGroups = std::move(workGroups);
     sortedBatch->drawCommands = std::move(drawCommands);
+    sortedBatch->preCulledSpritesBuffer = std::move(preCulledSprites);
 
-    /*
-    auto spriteRemapBuffer = Buffer::createStaticDraw(
-        "SpriteRemapBuffer",
-        inputSpriteIndicies.data(),
-        inputSpriteIndicies.size() * sizeof(u32)
-    );
+    {
+        std::scoped_lock lock(scheduler.mutex);
 
-    if (!spriteRemapBuffer)
-        return nullptr;
-
-    auto workGroupBuffer = Buffer::createStaticDraw(
-        "WorkGroupBuffer",
-        workGroups.data(),
-        workGroups.size() * sizeof(WorkGroup)
-    );
-
-    if (!workGroupBuffer)
-        return nullptr;
-
-    // auto preCulledSpritesBuffer = Buffer::createStaticDraw("Pre-culled sprites buffer", preCulledSprites.data(), preCulledSprites.size() * sizeof(PreCulledSprite));
-    // preCulledSprites.clear();
-
-    // if (!preCulledSpritesBuffer)
-    //     return nullptr;
-
-    auto drawCommandBuffer = Buffer::createGPUExclusive(
-        "DrawCommandBuffer",
-        workGroups.size() * sizeof(DrawCommand)
-    );
-
-    if (!drawCommandBuffer)
-        return nullptr;
-
-    drawCommandBuffer->write(drawCommands.data(), drawCommandBuffer->getSize());
-
-    preCulledSprites->flushAllAndUnmap();
-    */
-
-    return sortedBatch;
+        scheduler.sortedBatchesPerBlendStates[blendStates] = std::move(sortedBatch);
+        scheduler.finishedGenerationJobs.insert(this);
+    }
 }
 
-void WorkGroupScheduler::generateWorkGroupsForLayer(
+void WorkGroupScheduler::GenerationJob::loadAndSortSprites(const std::vector<SpriteEntry>& sprites) {
+    sortedSpriteLayers.clear();
+
+    for (auto& sprite : sprites) {
+        auto key = sprite.getFullLayerKey(blendStates);
+        sortedSpriteLayers[key].push_back(&sprite);
+    }
+
+    for (auto& [key, layer] : sortedSpriteLayers) {
+        std::sort(layer.begin(), layer.end(), [](const SpriteEntry* a, const SpriteEntry* b) {
+            return a->zOrder < b->zOrder;
+        });
+    }
+}
+
+void WorkGroupScheduler::GenerationJob::generateWorkGroupsForLayer(
     LayerKey layerKey,
     u32 spritesPerWorkGroup,
-    u32& culledIndexBufferOutputIndex,
-    PreCulledSprite::Buffer* preCulledSprites
+    u32& culledIndexBufferOutputIndex
 ) {
     assert(spritesPerWorkGroup > 0);
 
@@ -282,8 +253,4 @@ void WorkGroupScheduler::generateWorkGroupsForLayer(
             .culledIndexBufferOutputIndex = culledOutputIndex
         });
     }
-}
-
-LayerKey WorkGroupScheduler::SpriteEntry::getFullLayerKey(const ColorChannelBlendStates& blendingStates) const {
-    return { zLayer, spriteSheet, blendingStates[colorChannelId] };
 }

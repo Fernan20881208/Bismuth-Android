@@ -28,6 +28,9 @@ static std::vector<void*> functionCallStack;
 
 static std::set<GPUTimer*> gpuTimers;
 
+// TODO: Make sure to not use queries if the drivers don't support it
+static bool supportsQueries = true;
+
 DECLARE_HOTKEY(KEY_P, {
     takeSnapshotNextFrame = true;
 });
