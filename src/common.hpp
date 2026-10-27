@@ -71,6 +71,8 @@ inline usize alignUp(usize value, usize align) {
     return rem ? value + (align - rem) : value;
 }
 
+std::string byteSizeToString(usize size);
+
 inline bool isNVidiaGPU() {
     return strcmp((const char*)glGetString(GL_VENDOR), "NVIDIA Corporation") == 0;
 }

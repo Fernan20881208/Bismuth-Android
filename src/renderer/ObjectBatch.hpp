@@ -9,7 +9,7 @@
 #include "glm/fwd.hpp"
 #include "math/ConvexList.hpp"
 #include "ObjectUtils.hpp"
-#include "ObjectSpriteSorter.hpp"
+#include "WorkGroupScheduler.hpp"
 #include "../utils/GPUTimer.hpp"
 
 using namespace geode;
@@ -102,7 +102,7 @@ public:
     inline usize getVertexBufferSize() { return vertexCount * sizeof(ObjectVertex); }
     inline void setSpriteSheetFilter(SpriteSheet sheet) { spriteSheetFilter = sheet; }
     inline const std::set<LayerKey>& getUsedLayerIds() { return usedLayerKeys; }
-    inline usize getSpriteCount() { return spriteSorter.getSpriteCount(); }
+    inline usize getSpriteCount() { return workGroupScheduler.getSpriteCount(); }
 
     void predraw();
 
@@ -129,8 +129,8 @@ private:
 
     u32 vao = 0;
 
-    ObjectSpriteSorter spriteSorter;
-    UPtr<SortedObjectBatch> sortedBatch;
+    WorkGroupScheduler workGroupScheduler;
+    SortedObjectBatch* sortedBatch = nullptr;
 
     usize spriteCount = 0;
 

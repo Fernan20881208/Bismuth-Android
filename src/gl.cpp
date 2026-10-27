@@ -1,12 +1,6 @@
 #define GLAD_API_CALL
 #include "gl.hpp"
 
-static bool loaded = false;
-
-inline void* glGetProcAddressRaw(const char* name) {
-    return (void*)wglGetProcAddress(name);
-}
-
 struct CastableFuncPtr {
     void* ptr;
 
@@ -15,6 +9,12 @@ struct CastableFuncPtr {
         return (T)ptr;
     }
 };
+
+static bool loaded = false;
+
+inline void* glGetProcAddressRaw(const char* name) {
+    return (void*)wglGetProcAddress(name);
+}
 
 inline CastableFuncPtr glGetProcAddress(const char* name) {
     return (CastableFuncPtr)glGetProcAddressRaw(name);

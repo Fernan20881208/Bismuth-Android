@@ -10,6 +10,14 @@ $on_mod(Loaded) {
     modStartTime = std::chrono::high_resolution_clock::now();
 }
 
+std::string byteSizeToString(usize size) {
+    std::string unit = "B";
+    double dsize = size;
+    if (dsize > 1000.0) { dsize /= 1000.0; unit = "kB"; }
+    if (dsize > 1000.0) { dsize /= 1000.0; unit = "MB"; }
+    return fmt::format("{:.3f}{}", dsize, unit);
+}
+
 bool isOpenGLAtLeastVersion(u32 major, u32 minor) {
     std::string version = (const char*)glGetString(GL_VERSION);
     if (version.starts_with("OpenGL ES"))

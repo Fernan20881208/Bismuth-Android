@@ -34,15 +34,22 @@ set(ENABLE_OPT 0)
 set(ENABLE_GLSLANG_BINARIES OFF)
 
 include(FetchContent)
+
 FetchContent_Declare(
 	glm
 	GIT_REPOSITORY	https://github.com/g-truc/glm.git
 	GIT_TAG 	0af55ccecd98d4e5a8d1fad7de25ba429d60e863
 )
 FetchContent_Declare(glslang GIT_REPOSITORY https://github.com/KhronosGroup/glslang.git GIT_TAG vulkan-sdk-1.4.335)
-FetchContent_MakeAvailable(glm glslang)
+FetchContent_Declare(
+	OpenCL-Headers
+	GIT_REPOSITORY	https://github.com/KhronosGroup/OpenCL-Headers.git
+	GIT_TAG 	    v2026.05.29
+)
 
-target_link_libraries(${PROJECT_NAME} glm::glm glslang::glslang)
+FetchContent_MakeAvailable(glm glslang OpenCL-Headers)
+
+target_link_libraries(${PROJECT_NAME} glm::glm glslang::glslang OpenCL::Headers)
 target_include_directories(${PROJECT_NAME} PRIVATE src)
 
 # Other Geode stuff

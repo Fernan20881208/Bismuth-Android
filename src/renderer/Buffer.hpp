@@ -14,6 +14,16 @@ public:
 
     void write(void* data, usize size, usize offset = 0);
 
+    template <typename T>
+    void write(std::span<T> span) {
+        write(span.data(), span.size_bytes());
+    }
+
+    template <typename T>
+    void write(const std::vector<T>& vector) {
+        write(std::span<T>(vector));
+    }
+
     inline void bindAs(GLenum binding) {
         glBindBuffer(binding, id);
     }

@@ -83,6 +83,13 @@ public:
             return nullptr;
     }
 
+    inline usize getByteSize() const {
+        usize size = 0;
+        for (usize i = 0; i < sizeof...(Vars_); i++)
+            size += buffers[i]->getSize();
+        return size;
+    }
+
 private:
     /*
     template <typename Var_>

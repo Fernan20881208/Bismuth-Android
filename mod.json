@@ -34,20 +34,21 @@
 			"type": "bool",
 			"default": true
 		},
+		"gpu_core_count": {
+			"name": "GPU core count",
+			"type": "int",
+			"default": 0,
+			"max": 20000,
+			"min": 0,
+			"description": "Here, you can manually specify your GPU core count. If set at 0, Bismuth attempts to find the core count manually. If it can't find it, make sure you set this value correctly. You can also try different values to see how it affects performance."
+		},
 		"ingame_enable": {
 			"name": "Enable debug tools",
 			"type": "bool",
 			"default": false,
 			"description": "Allows you to enable and disable Bismuth while playing by pressing F8. It also allows you to use Difference Mode by pressing F9 (Difference Mode is very unstable).\n\n WARNING: This option effectively removes any optimization."
 		},
-		"work_group_count": {
-			"name": "Work group count",
-			"type": "int",
-			"default": 10000,
-			"max": 40000,
-			"min": 10,
-			"description": "Number of work groups to issue for the culling shader. This number should roughly equal GPU core count * 2.5. Or, you can try different values and pick the one that gives the best result."
-		},
+		
 		"use_mapped_buffers": {
 			"name": "Use persistently mapped buffers",
 			"type": "bool",

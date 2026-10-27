@@ -196,7 +196,7 @@ void ObjectBatch::addSprite(
     usedLayerKeys.insert({zLayer, spriteSheet, false});
     usedLayerKeys.insert({zLayer, spriteSheet, true});
 
-    spriteSorter.addSprite(object, sprite, type, currentSpriteIndex, trianglesCount);
+    workGroupScheduler.addSprite(object, sprite, type, currentSpriteIndex, trianglesCount);
 }
 
 void ObjectBatch::writeGameObject(GameObject* object) {
@@ -231,9 +231,6 @@ void ObjectBatch::finishWriting() {
 
     rawSpriteBuffer   = RawSprite::Buffer::create(getSpriteCount(), GL_DYNAMIC_DRAW, false);
     culledIndexBuffer = Buffer::createGPUExclusive("CulledTriIndexBuffer", vertexCount / 3 * sizeof(u32));
-
-    spriteSorter.sortForCurrentBlendingStates();
-    sortedBatch = spriteSorter.generateSortedBatch();
 
     verticies.clear();
     indicies.clear();
@@ -274,6 +271,18 @@ void ObjectBatch::draw(const LayerKey& layer) {
 void ObjectBatch::predraw() {
     PROFILER_PUSH("ObjectBatch::predraw");
     cullingComputeShaderTimer.start();
+
+    const auto& blendStates = renderer.getColorChannelBlendStates();
+
+    // This uses a different thread to avoid a lag spike
+    auto newSortedBatch = workGroupScheduler.fetchSortedBatchForBlendStates(blendStates);
+    if (newSortedBatch)
+        sortedBatch = newSortedBatch;
+    else if (!sortedBatch) {
+        workGroupScheduler.waitForJobs();
+        sortedBatch = workGroupScheduler.fetchSortedBatchForBlendStates(blendStates);
+        assert(sortedBatch);
+    }
 
     Shader* computeShader = renderer.getCullingComputeShader();
 

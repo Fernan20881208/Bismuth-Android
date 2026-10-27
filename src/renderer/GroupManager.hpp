@@ -220,4 +220,6 @@ private:
         inconsistencies.
     */
     std::vector<std::set<GameObject*>> vanillaRotateGroups;
+
+    std::mutex mutex;
 };

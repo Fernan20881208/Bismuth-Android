@@ -108,13 +108,13 @@ public:
         return cullingComputeShader.get();
     }
 
-    inline usize getWorkGroupCount() const { return workGroupCount; }
-
     bool useOptimizations();
 
     void setEnabled(bool enabled);
 
     inline GroupManager& getGroupManager() { return groupManager; }
+
+    inline const ColorChannelBlendStates& getColorChannelBlendStates() { return colorChannelsIsBlending; }
     
     void reset();
 
@@ -140,8 +140,6 @@ private:
 
     usize spritesOnScreen = 0;
 
-    usize workGroupCount = 0;
-
     std::unordered_map<GameObject*, usize> objectSRBIndicies;
 
     u32 timeElapsedQuery = 0;
@@ -152,7 +150,7 @@ private:
 
     cocos2d::CCTexture2D* spriteSheets[(i32)SpriteSheet::COUNT] = { nullptr };
 
-    std::array<bool, 1101> colorChannelsIsBlending;
+    ColorChannelBlendStates colorChannelsIsBlending;
 
     Ref<cocos2d::CCLabelBMFont> debugText;
     Ref<cocos2d::CCLabelBMFont> debugTextOutline1;
