@@ -9,12 +9,6 @@
 
 using namespace geode::prelude;
 
-#define MOVE_TRIGGER_ID   901
-#define ALPHA_TRIGGER_ID  1007
-#define TOGGLE_TRIGGER_ID 1049
-#define ROTATE_TRIGGER_ID 1346
-#define FOLLOW_TRIGGER_ID 1347
-
 static std::optional<GroupID> getTargetGroupIdOfTransformingTrigger(GameObject* object) {
     switch (object->m_objectID) {
     case MOVE_TRIGGER_ID:

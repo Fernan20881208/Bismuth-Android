@@ -3,7 +3,6 @@
 #include "../cl.hpp"
 
 void SortedObjectBatch::bindBuffers() {
-
     if (!haveBuffersBeenCreated) {
         spriteRemapBuffer = Buffer::createStaticDraw(
             "SpriteRemapBuffer",
@@ -90,12 +89,13 @@ SortedObjectBatch* WorkGroupScheduler::fetchSortedBatchForBlendStates(const Colo
 
     generateJobs.emplace(GenerateJob {blendStates, std::move(sortedBatch)});
 
-    if (!currentlyExecutingJobs) {
+    if (!currentlyExecutingJobs.load()) {
         if (thread.joinable())
             thread.join();
 
-        currentlyExecutingJobs = true;
+        currentlyExecutingJobs.store(true);
         thread = std::thread(&WorkGroupScheduler::executeGenerateJobs, this);
+        //executeGenerateJobs();
     }
 
     return nullptr;
@@ -121,7 +121,7 @@ void WorkGroupScheduler::executeGenerateJobs() {
         }
     }
 
-    currentlyExecutingJobs = false;
+    currentlyExecutingJobs.store(false);
 }
 
 void WorkGroupScheduler::sortForBlendStates(const ColorChannelBlendStates& blendStates) {
@@ -251,8 +251,6 @@ void WorkGroupScheduler::generateWorkGroupsForLayer(
     assert(spritesPerWorkGroup > 0);
 
     const auto& sprites = sortedSpriteLayers[layerKey];
-
-    auto& gman = Renderer::get()->getGroupManager();
 
     u32 i = 0;
     while (i < sprites.size()) {

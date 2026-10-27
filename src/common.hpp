@@ -11,6 +11,13 @@
 #include <memory>
 #include <stdint.h>
 
+#define MOVE_TRIGGER_ID   901
+#define ALPHA_TRIGGER_ID  1007
+#define TOGGLE_TRIGGER_ID 1049
+#define ROTATE_TRIGGER_ID 1346
+#define FOLLOW_TRIGGER_ID 1347
+#define GUIDE_OBJECT_ID   2016
+
 #ifdef __GNUC__
 #define PACKED( __Declaration__ ) __Declaration__ __attribute__((__packed__))
 #endif

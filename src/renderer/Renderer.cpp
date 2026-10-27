@@ -92,7 +92,7 @@ bool Renderer::init(PlayLayer* layer, CCArray* levelObjects) {
             continue;
         }
 
-        if (object->isTrigger() || object->m_isHide)
+        if (object->isTrigger() || object->m_isHide || object->m_objectID == GUIDE_OBJECT_ID)
             continue;
 
         DEBUG_LOG("- {}, id: {}", (void*)object, object->m_objectID);

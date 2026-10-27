@@ -109,9 +109,9 @@ private:
 
     std::mutex mutex;
 
-    //// INFO FOR CURRENT THREAD ////
+    //// INFO FOR GENERATING THREAD ////
+    u8 _padding[std::hardware_destructive_interference_size];
 
-    std::vector<SpriteEntry*> sortedSpriteEntries;
     usize currentSpriteIndex;
 
     std::unordered_map<LayerKey, std::vector<SpriteEntry*>> sortedSpriteLayers;
