@@ -16,7 +16,21 @@ void Buffer::read(void* data, usize size, usize offset) {
     glGetIntegerv(GL_ARRAY_BUFFER_BINDING, &previouslyBoundBuffer);
 
     glBindBuffer(GL_ARRAY_BUFFER, id);
+#if defined(GEODE_IS_ANDROID)
+    // OpenGL ES has no glGetBufferSubData; map the requested range instead.
+    void* mapped = glMapBufferRange(
+        GL_ARRAY_BUFFER,
+        static_cast<GLintptr>(offset),
+        static_cast<GLsizeiptr>(size),
+        GL_MAP_READ_BIT
+    );
+    if (mapped) {
+        std::memcpy(data, mapped, size);
+        glUnmapBuffer(GL_ARRAY_BUFFER);
+    }
+#else
     glGetBufferSubData(GL_ARRAY_BUFFER, offset, size, data);
+#endif
 
     glBindBuffer(GL_ARRAY_BUFFER, previouslyBoundBuffer);
 }
@@ -87,7 +101,12 @@ UPtr<Buffer> Buffer::create(const char* name, usize size, GLenum usage) {
     ret->name = name;
     ret->id = buffer;
     ret->size = size;
+#if defined(GEODE_IS_ANDROID)
+    // GLES has no persistent buffer mapping. Use the CPU staging-buffer path.
+    ret->shouldMap = false;
+#else
     ret->shouldMap = Mod::get()->getSettingValue<bool>("use_mapped_buffers");
+#endif
 
     return ret;
 }
