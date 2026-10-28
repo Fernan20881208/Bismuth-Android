@@ -6,6 +6,10 @@ on:
     branches:
       - android-port
 
+concurrency:
+  group: bismuth-android-build-${{ github.ref }}
+  cancel-in-progress: true
+
 permissions:
   contents: read
 
