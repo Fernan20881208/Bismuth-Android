@@ -1,6 +1,6 @@
 #pragma once
 
-#include <Geode/cocos/platform/win32/CCGL.h>
+#include <Geode/cocos/platform/CCGL.h>
 
 /*
     This file adds the required OpenGL 4.3 functions as
