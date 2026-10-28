@@ -1,59 +1,59 @@
 {
-	"geode": "5.10.1",
-	"gd": {
-		"win": "2.2081"
-	},
-	"id": "iliashdz.bismuth",
-	"name": "Bismuth (experimental)",
-	"version": "v0.1.0-alpha",
-	"developer": "IliasHDZ",
-	"description": "Rendering optimization mod",
-	"dependencies": {
-		"geode.node-ids": ">=v1.20.0"
-	},
-	"tags": [
-		"performance"
-	],
-	"links": {
-		"source": "https://github.com/IliasHDZ/Bismuth",
-		"community": "https://discord.gg/B6H6ZVJx9C"
-	},
-	"resources": {
-		"files": [
-			"resources/shaders/*.vert",
-			"resources/shaders/*.frag",
-			"resources/shaders/*.comp",
-			"resources/shaders/*.h",
-			"resources/shaders/headers/*.h",
-			"resources/*.json"
-		]
-	},
-	"settings": {
-		"enabled": {
-			"name": "Bismuth enabled",
-			"type": "bool",
-			"default": true
-		},
-		"gpu_core_count": {
-			"name": "GPU core count",
-			"type": "int",
-			"default": 0,
-			"max": 20000,
-			"min": 0,
-			"description": "Here, you can manually specify your GPU core count. If set at 0, Bismuth attempts to find the core count manually. If it can't find it, make sure you set this value correctly. You can also try different values to see how it affects performance."
-		},
-		"ingame_enable": {
-			"name": "Enable debug tools",
-			"type": "bool",
-			"default": false,
-			"description": "Allows you to enable and disable Bismuth while playing by pressing F8. It also allows you to use Difference Mode by pressing F9 (Difference Mode is very unstable).\n\n WARNING: This option effectively removes any optimization."
-		},
-		
-		"use_mapped_buffers": {
-			"name": "Use persistently mapped buffers",
-			"type": "bool",
-			"default": false,
-			"description": "May work well with integrated GPU, not so much with discrete GPUs (like a graphics card)"
-		}
-	}
+  "geode": "5.10.1",
+  "gd": {
+    "win": "2.2081",
+    "android": "2.2081"
+  },
+  "id": "fernan20881208.bismuth-android",
+  "name": "Bismuth Android (experimental)",
+  "version": "v0.1.0-android.1",
+  "developer": "IliasHDZ / Fernan20881208",
+  "description": "Experimental Android build of Bismuth, a Geometry Dash rendering optimization mod.",
+  "dependencies": {
+    "geode.node-ids": ">=v1.20.0"
+  },
+  "tags": [
+    "performance"
+  ],
+  "links": {
+    "source": "https://github.com/Fernan20881208/Bismuth-Android",
+    "community": "https://discord.gg/B6H6ZVJx9C"
+  },
+  "resources": {
+    "files": [
+      "resources/shaders/*.vert",
+      "resources/shaders/*.frag",
+      "resources/shaders/*.comp",
+      "resources/shaders/*.h",
+      "resources/shaders/headers/*.h",
+      "resources/*.json"
+    ]
+  },
+  "settings": {
+    "enabled": {
+      "name": "Bismuth enabled",
+      "type": "bool",
+      "default": true
+    },
+    "gpu_core_count": {
+      "name": "GPU core count",
+      "type": "int",
+      "default": 0,
+      "max": 20000,
+      "min": 0,
+      "description": "Manually specify the GPU core count. Set to 0 to use automatic detection when supported."
+    },
+    "ingame_enable": {
+      "name": "Enable debug tools",
+      "type": "bool",
+      "default": false,
+      "description": "Enables experimental debug tools while playing."
+    },
+    "use_mapped_buffers": {
+      "name": "Use persistently mapped buffers",
+      "type": "bool",
+      "default": false,
+      "description": "May perform well on some integrated GPUs but poorly on others."
+    }
+  }
 }
