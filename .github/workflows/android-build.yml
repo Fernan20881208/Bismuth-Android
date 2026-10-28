@@ -1,0 +1,35 @@
+name: Android build
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - android-port
+
+permissions:
+  contents: read
+
+jobs:
+  build-android64:
+    name: Build Android 64-bit (arm64-v8a)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Build Geode mod for Android64
+        id: build
+        uses: geode-sdk/build-geode-mod@main
+        with:
+          target: Android64
+          build-config: Release
+          combine: false
+          use-lto: true
+
+      - name: Upload Android64 .geode artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: Bismuth-Android-arm64
+          path: ${{ steps.build.outputs.build-output }}/*.geode
+          if-no-files-found: error
+          retention-days: 14
