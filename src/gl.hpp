@@ -1,9 +1,9 @@
 #pragma once
 
-#include <Geode/cocos/platform/CCGL.h>
-#if defined(GEODE_IS_ANDROID)
+#if defined(__ANDROID__) || defined(ANDROID)
 #include <GLES3/gl31.h>
 #endif
+#include <Geode/cocos/platform/CCGL.h>
 
 /*
     This file adds the required OpenGL 4.3 functions as
