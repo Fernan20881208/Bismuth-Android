@@ -1,7 +1,7 @@
 #include "Renderer.hpp"
 #include "Geode/cocos/CCDirector.h"
 #include "Geode/cocos/kazmath/include/kazmath/mat4.h"
-#include "Geode/cocos/platform/win32/CCGL.h"
+#include "Geode/cocos/platform/CCGL.h"
 #include "Geode/cocos/robtop/keyboard_dispatcher/CCKeyboardDelegate.h"
 #include "Geode/cocos/sprite_nodes/CCSpriteBatchNode.h"
 #include "GroupManager.hpp"
