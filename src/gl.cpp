@@ -1,7 +1,7 @@
 #define GLAD_API_CALL
 #include "gl.hpp"
 
-#if defined(GEODE_IS_ANDROID)
+#if defined(__ANDROID__) || defined(ANDROID)
 #include <EGL/egl.h>
 #endif
 
@@ -17,7 +17,7 @@ struct CastableFuncPtr {
 static bool loaded = false;
 
 inline void* glGetProcAddressRaw(const char* name) {
-#if defined(GEODE_IS_ANDROID)
+#if defined(__ANDROID__) || defined(ANDROID)
     return (void*)eglGetProcAddress(name);
 #elif defined(GEODE_IS_WINDOWS)
     return (void*)wglGetProcAddress(name);
