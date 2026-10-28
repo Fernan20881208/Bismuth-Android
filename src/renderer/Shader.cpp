@@ -1,5 +1,5 @@
 #include "Shader.hpp"
-#include "Geode/cocos/platform/win32/CCGL.h"
+#include "Geode/cocos/platform/CCGL.h"
 #include "common.hpp"
 #include "glslang/MachineIndependent/Versions.h"
 
