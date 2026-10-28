@@ -1,5 +1,7 @@
 #include "cl.hpp"
 
+#if defined(GEODE_IS_WINDOWS)
+
 using namespace geode::prelude;
 
 #define CL_NO_CORE_PROTOTYPES
@@ -182,3 +184,18 @@ isize getGPUCoreCount() {
 $on_mod(Loaded) {
     getGPUCoreCount();
 }
+#else
+// Android does not expose the Windows WGL/OpenCL interop APIs used by the
+// original desktop renderer. Allow the Android target to compile, and let
+// users provide a manual value until an EGL/OpenCL implementation is ported.
+using namespace geode::prelude;
+
+isize getGPUCoreCount() {
+    int setting = Mod::get()->getSettingValue<int>("gpu_core_count");
+    return setting != 0 ? static_cast<isize>(setting) : -1;
+}
+
+$on_mod(Loaded) {
+    getGPUCoreCount();
+}
+#endif
